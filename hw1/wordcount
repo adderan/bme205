@@ -1,0 +1,58 @@
+#!/usr/bin/env python2.7
+
+from __future__ import print_function, division  #suggested by assignment, ensures print() works the same in 2.7 and 3.4
+import argparse
+import sys
+import string
+import collections
+
+def parse_arguments(args):
+	parser = argparse.ArgumentParser(description = 'Count the number of occurrences of each word in a file.')
+	parser.add_argument('--ascend', action = 'store_true', help = 'Sort the output by increasing word counts.')
+	parser.add_argument('--descend', action = 'store_true', help = 'Sort the output by decreasing word counts. If --alpha is set, will sort by reverse alphabetical order.')
+	parser.add_argument('--alpha', action = 'store_true', help = 'Sort the output alphabetically. Will sort reverse alphabetically if --descend is set as well.')
+	return parser.parse_args(args[1:]) #the first entry in sys.argv is the program name, so the parser should start with the second argument.
+
+
+def read_word(text):
+	for line in text: #stdin is a list of lines of text. 
+		word = "" #initialize an empty word
+		for character in line: #iterate through the characters in the line.
+			if character in string.letters: #Check if the character is in string.letters, which contains all lowercase and uppercase letters, as described in the python docs. 
+				word += character  #add the character to the current word if it is a letter.
+			else: 
+				if len(word) > 0: #if a separator (punctuation, space, other) is encountered, yield the current word if it is longer than zero. 
+					yield word  #use of the yield keyword is described in the python docs. 
+				word = "" #clear the current word after encountering a separator.
+
+
+def print_output(out_file, word_counts, options):
+	word_counts_tuple = [(word, word_counts[word]) for word in word_counts] #move the words and counts into a tuple for sorting.
+
+	word_counts_tuple = sorted(word_counts_tuple, key = lambda x: x[0]) #sort alphabetically. This ordering will be preserved within equal counts when sorting by count.
+
+	if options.ascend:
+		word_counts_tuple = sorted(word_counts_tuple, key = lambda word: word[1]) #sort by count ascending. 
+	elif options.descend and not options.alpha:
+		word_counts_tuple = sorted(word_counts_tuple, key = lambda word: word[1], reverse = True) #sort by count descending.
+	elif options.alpha and not options.descend:
+		pass
+	elif options.alpha and options.descend:
+		word_counts_tuple = sorted(word_counts_tuple, key = lambda x: x[0], reverse = True)
+
+
+	for word, count in word_counts_tuple:
+		print(word, "\t", count, file = out_file)
+		
+def main(args):
+	options = parse_arguments(args)
+
+	counts = collections.defaultdict(int)
+	for word in read_word(sys.stdin):
+		counts[word] += 1
+	print_output(sys.stdout, counts, options)	
+	
+
+if __name__ == "__main__" :
+	sys.exit(main(sys.argv))
+
