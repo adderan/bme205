@@ -1,51 +1,53 @@
 #!/usr/bin/env python2.7
 
-from __future__ import print_function, division  #suggested by assignment, ensures print() works the same in 2.7 and 3.4
+from __future__ import print_function, division  #suggested by assignment, ensures print() works the same in 2.7 as in 3.4
 import argparse
 import sys
 import string
 import collections
+import re
+import operator
+
 
 def parse_arguments(args):
-	parser = argparse.ArgumentParser(description = 'Count the number of occurrences of each word in a file.')
-	parser.add_argument('--ascend', action = 'store_true', help = 'Sort the output by increasing word counts.')
+
+	parser = argparse.ArgumentParser(description = 'Count the number of occurrences of each word in a file.') #An argparse object that will process three boolean arguments to give the user options for sorting. https://docs.python.org/3/library/argparse.html
+	parser.add_argument('--ascend', action = 'store_true', help = 'Sort the output by increasing word counts.') #the "--" preceding the argument name makes it an optional argument, and the "store_true" option means that it only stores a True value if activated and a False if not activated. 
 	parser.add_argument('--descend', action = 'store_true', help = 'Sort the output by decreasing word counts. If --alpha is set, will sort by reverse alphabetical order.')
 	parser.add_argument('--alpha', action = 'store_true', help = 'Sort the output alphabetically. Will sort reverse alphabetically if --descend is set as well.')
-	return parser.parse_args(args[1:]) #the first entry in sys.argv is the program name, so the parser should start with the second argument.
+	return parser.parse_args(args) #This returns an object with a boolean field for each command-line argument.
 
 
 def read_word(text):
-	for line in text: #stdin is a list of lines of text. 
-		word = "" #initialize an empty word
-		for character in line: #iterate through the characters in the line.
-			if character in string.letters: #Check if the character is in string.letters, which contains all lowercase and uppercase letters, as described in the python docs. 
-				word += character  #add the character to the current word if it is a letter.
-			else: 
-				if len(word) > 0: #if a separator (punctuation, space, other) is encountered, yield the current word if it is longer than zero. 
-					yield word  #use of the yield keyword is described in the python docs. 
-				word = "" #clear the current word after encountering a separator.
+	separators = "[^a-zA-Z]" #a regular expression that will match any character other than an uppercase or lowercase letter. The "^" operator takes the complement of the set [a-zA-Z], which contains all letters. The use of regular expressions for splitting text is described in the Python Docs: https://docs.python.org/2/library/re.html
+	for line in text: 
+
+		for word in re.split(separators, line): #split the line by any character matched by the regular expression and iterate through the resulting words. The re.split() function is described in the Python Docs: https://docs.python.org/2/library/re.html#module-contents
+			if len(word) > 0: #yield the current word if it is longer than zero. In this assignment, empty strings do not count as words.
+				yield word  #use of the yield keyword in generator functions is described in the Python Wiki: http://wiki.python.org/moin/Generators 
 
 
 def print_output(out_file, word_counts, options):
-	word_counts_tuple = [(word, word_counts[word]) for word in word_counts] #move the words and counts into a tuple for sorting.
-
-	word_counts_tuple = sorted(word_counts_tuple, key = lambda x: x[0]) #sort alphabetically. This ordering will be preserved within equal counts when sorting by count.
+	word_counts_tuple = word_counts.items() #move the words and counts into a list of tuples for sorting.
+	
 
 	if options.ascend:
-		word_counts_tuple = sorted(word_counts_tuple, key = lambda word: word[1]) #sort by count ascending. 
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(0)) #sort alphabetically. The sorted function sorts a tuple by the provided key. The itemgetter function just returns one of the elements of the tuple, which is used as the key. https://wiki.python.org/moin/HowTo/Sorting#Ascending_and_Descending 
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(1)) #sort by count ascending. Python sorting is "stable," which means that the alphabetical ordering will be preserved for words with the same count. https://wiki.python.org/moin/HowTo/Sorting#Sort_Stability_and_Complex_Sorts  
 	elif options.descend and not options.alpha:
-		word_counts_tuple = sorted(word_counts_tuple, key = lambda word: word[1], reverse = True) #sort by count descending.
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(0)) #sort alphabetically
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(1), reverse = True) #sort by count descending.
 	elif options.alpha and not options.descend:
-		pass
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(0))
 	elif options.alpha and options.descend:
-		word_counts_tuple = sorted(word_counts_tuple, key = lambda x: x[0], reverse = True)
+		word_counts_tuple = sorted(word_counts_tuple, key = operator.itemgetter(0), reverse = True) #sort reverse alphabetically
 
 
 	for word, count in word_counts_tuple:
-		print(word, "\t", count, file = out_file)
+		print("{0}\t{1}".format(word, count), file = out_file) #https://docs.python.org/2/library/string.html
 		
 def main(args):
-	options = parse_arguments(args)
+	options = parse_arguments(args[1:]) #sys.argv[0] is the name of the program, so the argument parser should start with the second argument.
 
 	counts = collections.defaultdict(int)
 	for word in read_word(sys.stdin):
