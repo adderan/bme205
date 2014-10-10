@@ -1,15 +1,20 @@
 #!/usr/bin/env python2.7
 
+#Alden Deran, BME 205 homework 1
+
+"""Reads a file from standard input and outputs the number of occurrences for each word in the specified order."""
+
 from __future__ import print_function, division  #suggested by assignment, ensures print() works the same in 2.7 as in 3.4
 import argparse
 import sys
-import string
+import string 
 import collections
 import re
 import operator
 
 
 def parse_arguments(args):
+	"""Parses three optional command-line aguments: --ascend to order output by ascending word count, --alpha for alphabetical ordering, and --descend for descending word count or descending alphabetical order if --alpha is also given."""
 
 	parser = argparse.ArgumentParser(description = 'Count the number of occurrences of each word in a file.') #An argparse object that will process three boolean arguments to give the user options for sorting. https://docs.python.org/3/library/argparse.html
 	parser.add_argument('--ascend', action = 'store_true', help = 'Sort the output by increasing word counts.') #the "--" preceding the argument name makes it an optional argument, and the "store_true" option means that it only stores a True value if activated and a False if not activated. 
@@ -19,6 +24,7 @@ def parse_arguments(args):
 
 
 def read_word(text):
+	"""Splits a file-like object into words and yields one word at a time. A word is defined as a continuous string of uppercase or lowercase characters."""
 	separators = "[^a-zA-Z]" #a regular expression that will match any character other than an uppercase or lowercase letter. The "^" operator takes the complement of the set [a-zA-Z], which contains all letters. The use of regular expressions for splitting text is described in the Python Docs: https://docs.python.org/2/library/re.html
 	for line in text: 
 
@@ -28,6 +34,7 @@ def read_word(text):
 
 
 def print_output(out_file, word_counts, options):
+	"""Takes a dictionary of word counts and prints each word and its count separated by a tab to out_file. Four orderings of the words are allowed; ascending by count with alphabetical ordering within each count if options.ascend is True, descending by count with alphabetical ordering within each count if options.descend is True, ascending alphabetical if options.alpha is True, and descending alphabetical if options.alpha and options.descend are True."""
 	word_counts_tuple = word_counts.items() #move the words and counts into a list of tuples for sorting.
 	
 
@@ -44,13 +51,14 @@ def print_output(out_file, word_counts, options):
 
 
 	for word, count in word_counts_tuple:
-		print("{0}\t{1}".format(word, count), file = out_file) #https://docs.python.org/2/library/string.html
+		print("{0}\t{1}".format(word, count), file = out_file, sep = '') #https://docs.python.org/2/library/string.html
 		
-def main(args):
+def main(args): #structure of main function suggested by assignment.
+	"""Reads and parses command-line arguments, iterates through each word in standard input, and prints the words and counts in the ordering determined by the command-line options."""
 	options = parse_arguments(args[1:]) #sys.argv[0] is the name of the program, so the argument parser should start with the second argument.
 
-	counts = collections.defaultdict(int)
-	for word in read_word(sys.stdin):
+	counts = collections.defaultdict(int) #items default to zero so they can be incremented immediately
+	for word in read_word(sys.stdin): #read a word one at a time from standard input using the read_word() generator function.
 		counts[word] += 1
 	print_output(sys.stdout, counts, options)	
 	
