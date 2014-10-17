@@ -1,0 +1,83 @@
+#!/usr/bin/env python2.7
+
+from __future__ import print_function
+import sequence_parser, sys, argparse
+
+
+def parse_arguments():
+	parser = argparse.ArgumentParser(description = "Parse FASTA and FASTQ files.")
+	parser.add_argument('--min_qual', type = int, help = "Quality level at which to trim the end of the input sequences. All bases below this quality level will be removed.")
+	parser.add_argument('--in_33', type = argparse.FileType('r'), help = "Input FASTQ file with Phred+33 quality score encoding.")
+	parser.add_argument('--in_64', type = argparse.FileType('r'), help = "Input FASTQ file with Phred+64 quality score encoding.")
+	parser.add_argument('--out_33', type = argparse.FileType('w'), help = "Output FASTQ file with Phred+33 quality score encoding.")
+	parser.add_argument('--out_64', type = argparse.FileType('w'), help = "Output FASTQ file with Phred+64 quality score encoding.")
+	parser.add_argument('--in_fasta', type = argparse.FileType('r'), help = "Input FASTA file.")
+	parser.add_argument('--in_qual', type = argparse.FileType('r'), help = "Input quality file.")
+	parser.add_argument('--out_fasta', type = argparse.FileType('w'), help = "Output FASTA file.")
+	parser.add_argument('--out_qual', type = argparse.FileType('w'), help = "Ouptut quality file.")
+
+	args = parser.parse_args()
+	if args.in_fasta and not args.in_qual:
+		parser.error("FASTA file must have an associated quality file.")
+	if args.in_qual and not args.in_fasta:
+		parser.error("Quality file must have an associated FASTA file.")
+	if not (args.in_fasta or args.in_33 or args.in_64):
+		parser.error("Must provide an input file.")
+	return args
+
+def main():
+	args = parse_arguments()
+	phred = None
+	if args.in_fasta:
+		parse_input = sequence_parser.read_fasta_with_quality(args.in_fasta, args.in_qual)
+	elif args.in_33:
+		parse_input = sequence_parser.read_fastq(args.in_33)
+		phred = 33
+	else: #fastq with phred 64 is the last possible option
+		parse_input = sequence_parser.read_fastq(args.in_64)
+		phred = 64
+		
+	
+	for name, description, sequence, quality in parse_input:
+
+		if phred is not None:
+			quality_converted = [ord(q) - phred for q in quality]
+		endtrimmed_sequence = trim_end(sequence, quality, args.min_qual)
+
+		if args.out_fasta:
+			print_fasta(name, description, sequence, quality, args.out_fasta, args.out_qual)
+		elif args.out_33:
+			print_fastq(name, description, sequence, quality, 33, args.out_33)
+		elif args.out_64:
+			print_fastq(name, description, sequence, quality, 64, args.out_64)
+
+
+def trim_end(sequence, quality, min_quality):
+	if min_quality is None: 
+		print("Warning: No minimum quality given, so no endtrimming done.", sys.stderr)
+		return sequence
+	for i in range(len(quality)):
+		if quality[i] < min_quality:
+			return sequence[0:i]
+
+def print_fasta(name, description, sequence, quality, sequencefile, qualityfile):
+	print(">", name, ' ', description, sep = '', file = sequencefile)
+	print(sequence, file = sequencefile)
+	if qualityfile is not None:
+		print(">", name, ' ', description, sep = '', file = qualityfile)
+		print(quality, file = qualityfile)
+
+def print_fastq(name, description, sequence, quality, phred, outfile):
+	print("@", name, ' ', description, sep = '', file = outfile)
+	print(sequence, file = outfile)
+	print("+", name, ' ', description, sep = '', file = outfile)
+	quality_converted = ''
+	for q in quality:
+		quality_converted += chr(int(q) + phred)
+	print(quality_converted, file = outfile)
+	
+	
+	
+
+if __name__ == "__main__":
+	sys.exit(main())
