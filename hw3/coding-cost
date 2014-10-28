@@ -1,0 +1,54 @@
+#!/usr/bin/env python2.7
+
+#Alden Deran (adderan)
+
+from __future__ import print_function
+import argparse, sys, string, markov, sequence_parser, collections
+
+def parse_arguments():
+	parser = argparse.ArgumentParser(description = "")
+	parser.add_argument("testfile", type = argparse.FileType('r'), help = "Input FASTA file containing sequences for which to calculate the coding cost using an n-th order Markov chain.")
+	args = parser.parse_args()
+	return args
+
+def read_count_table(infile):
+	counts = collections.Counter()
+	for line in infile:
+		kmer, count = line.split()
+		counts[kmer] = int(count)
+	return counts
+def detect_alphabet(counts):
+	alphabet = set([])
+	for kmer, count in counts.items():
+		characters = list(kmer)
+		alphabet = alphabet.union(set(characters))
+	return alphabet
+def measure_coding_cost(testfile, parser, probability_dict, order, alphabet):
+	cost = 0
+	char_count = 0
+
+	k = order + 1
+
+	for name, description, seq in parser(testfile):
+		fixed_seq = markov.fix_sequence(seq, alphabet, k)
+		char_count += len(fixed_seq) - 2*k
+		first_kmer = True
+		for kmer in markov.read_kmer(fixed_seq, k):
+			log_p_kmer = probability_dict[kmer]
+			#print(kmer, log_p_kmer)
+			cost += -1*log_p_kmer
+	return cost/char_count
+
+def main():
+	args = parse_arguments()
+	counts = read_count_table(sys.stdin)
+	order = len(counts.items()[0][0]) - 1
+	alphabet = detect_alphabet(counts)
+	probability_dict = markov.make_probability_dict(counts, alphabet, order)
+	print(measure_coding_cost(args.testfile, sequence_parser.read_fasta, probability_dict, order, alphabet))
+
+
+if __name__ == "__main__":
+	sys.exit(main())
+
+

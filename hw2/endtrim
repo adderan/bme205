@@ -1,5 +1,7 @@
 #!/usr/bin/env python2.7
 
+#Alden Deran (adderan) 
+
 from __future__ import print_function
 import sequence_parser, sys, argparse
 
