@@ -6,46 +6,100 @@ from __future__ import print_function
 import argparse, sys, string, markov, sequence_parser, collections
 
 def parse_arguments():
+	"""Retrieves a file and an alphabet as command line arguments. The file should be a FASTA file containing
+	sequences for which the coding cost is to be measured.
+	"""
+
 	parser = argparse.ArgumentParser(description = "")
+	parser.add_argument("-a", "--alphabet", type = set, help = "Alphabet of allowed characters. All other characters will be ignored when calculating cost")
 	parser.add_argument("testfile", type = argparse.FileType('r'), help = "Input FASTA file containing sequences for which to calculate the coding cost using an n-th order Markov chain.")
 	args = parser.parse_args()
 	return args
 
 def read_count_table(infile):
+	"""Reads a file containing kmers and their corresponding counts, separated by spaces, with
+	one kmer and its count per line. Returns a dict containing the kmer counts.
+	"""
 	counts = collections.Counter()
 	for line in infile:
 		kmer, count = line.split()
 		counts[kmer] = int(count)
 	return counts
+
 def detect_alphabet(counts):
+	"""Returns a set containing every character present in the kmers of a dictionary of kmer counts. 
+	The dictionary should be such that counts[kmer] is the number of counts for kmer.
+	"""
 	alphabet = set([])
 	for kmer, count in counts.items():
 		characters = list(kmer)
 		alphabet = alphabet.union(set(characters))
 	return alphabet
-def measure_coding_cost(testfile, parser, probability_dict, order, alphabet):
+
+def measure_coding_cost(testfile, parser, probability_dict, k, alphabet):
+	"""Calculates the coding cost of representing a set of sequences by a Markov chain determined 
+	by a conditional probability table. The probability table contains the logarithm base 2 of the probabilities of every
+	allowed kmer over the provided alphabet. The sum of these log-2 probabilities for every kmer in infile is then calculated. 
+	This quantity is the total coding cost. A tuple (cost/character, cost/sequence) is returned.
+	"""
+
 	cost = 0
 	char_count = 0
+	seq_count = 0
 
-	k = order + 1
-
+	#Iterate through sequences from testfile, which should be a FASTA file. 
+	#Remove invalid characters from the sequence, convert it to uppercase,
+	#and add stop characters to the end. Then step through each kmer in the 
+	#sequence and retrieve its log-probability from the probability_dict. Add minus
+	#the probability to the total coding cost for the file. A higher cost
+	#indicates observed kmers in testfile that have a low probability according to
+	#the model. A file containing kmers whose probabilities are all 100% would have 
+	#a cost of zero.
 	for name, description, seq in parser(testfile):
 		fixed_seq = markov.fix_sequence(seq, alphabet, k)
-		char_count += len(fixed_seq) - 2*k
-		first_kmer = True
+		
+		#Remove one of the start characters added by fix_sequence so that the first character encoded is a sequence
+		#character. Start characters shouldn't be
+		#encoded because the characters at the beginning of every sequence are always start characters
+		#even though start characters will have a less-than-one probability of occuring at the beginning 
+		#based on counts. Stop characters should be encoded because they don't always occur in the same place in
+		#every sequence.
+		fixed_seq = fixed_seq[1:]
+
+		#The stop characters aren't included in the character count, though including them
+		#would also be valid.
+		char_count += len(fixed_seq) - 2*k + 1
+
+		seq_count += 1
+
+		#read a kmer from the file to be encoded, and check its probability. The probability
+		#of a kmer starting at position zero of a string is the probability of the character
+		#at position k-1 assuming that the data is modeled by a markov chain of order k-1.
 		for kmer in markov.read_kmer(fixed_seq, k):
 			log_p_kmer = probability_dict[kmer]
 			#print(kmer, log_p_kmer)
 			cost += -1*log_p_kmer
-	return cost/char_count
+	return (cost/char_count, cost/seq_count)
 
 def main():
+	"""Parse the input file to be encoded, read the counts table from stdin, detect the alphabet
+	of the counts table, and calculate the coding cost of the sequences in the input file and print 
+	the cost/character and cost/sequence.
+	"""
 	args = parse_arguments()
 	counts = read_count_table(sys.stdin)
-	order = len(counts.items()[0][0]) - 1
-	alphabet = detect_alphabet(counts)
-	probability_dict = markov.make_probability_dict(counts, alphabet, order)
-	print(measure_coding_cost(args.testfile, sequence_parser.read_fasta, probability_dict, order, alphabet))
+	order = len(counts.items()[0][0]) - 1 #length of the first key (kmer) in the counts table is one more than the order
+	k = order + 1
+	
+	alphabet = args.alphabet #Try to use the alphabet provided by the user.
+	if alphabet is None:
+		alphabet = detect_alphabet(counts)
+
+	
+	probability_dict = markov.make_probability_dict(counts, alphabet, k)
+	
+	cost = measure_coding_cost(args.testfile, sequence_parser.read_fasta, probability_dict, k, alphabet)
+	print("cost per character: {0}\ncost per sequence: {1}".format(*cost))
 
 
 if __name__ == "__main__":

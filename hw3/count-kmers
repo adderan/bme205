@@ -3,7 +3,7 @@
 
 from __future__ import print_function
 
-import sys, sequence_parser, argparse, string, markov
+import sys, sequence_parser, argparse, string, markov, operator
 
 
 """Reads a FASTA file and outputs the number of occurrences of each kmer.
@@ -14,8 +14,8 @@ as a length-k sequence of characters.
 
 def parse_arguments():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--order", type = int, default = 0, help = "Length of the kmers to count. Defaults to 1.")
-	parser.add_argument("--alphabet", type = set, default = set(string.letters), help = "The set of characters to count in kmers. All other characters will be ignored. Defaults to the set of uppercase and lowercase letters")
+	parser.add_argument("-o", "--order", type = int, default = 0, help = "Length of the kmers to count. Defaults to 1.")
+	parser.add_argument("-a", "--alphabet", type = set, default = set(string.letters), help = "The set of characters to count in kmers. All other characters will be ignored. Defaults to the set of uppercase and lowercase letters")
 	args = parser.parse_args()
 	return args
 
@@ -24,8 +24,10 @@ def main():
 
 	#count the number of k-mers with k = order + 1, since a zeroth oder markov model uses 1-mers.
 	counts = markov.get_counts(sys.stdin, sequence_parser.read_fasta, args.order + 1, args.alphabet)
+
+	counts_sorted = sorted(counts.items(), key = operator.itemgetter(0)) #sort alphabetically
 	
-	for kmer, count in counts.most_common():
+	for kmer, count in counts_sorted:
 		print("{0} {1}".format(kmer, count), file = sys.stdout)
 
 if __name__ == "__main__":
