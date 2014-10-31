@@ -1,16 +1,21 @@
 #!/usr/bin/env python2.7
 
-#Alden Deran (adderan)
+#Alden Deran (adderan), BME 205 hw3
 
 from __future__ import print_function
 import argparse, sys, string, markov, sequence_parser, collections
+
+"""Calculate the coding cost (logarithm base 2 of the probability of each character) of a set of sequences using
+a Markov chain with the given order as the model. The markov model will be trained based on a table of
+counts for kmers over the provided alphabet with k = order + 1, read from stdin, with one kmer and its count per line, separated by a space.
+"""
 
 def parse_arguments():
 	"""Retrieves a file and an alphabet as command line arguments. The file should be a FASTA file containing
 	sequences for which the coding cost is to be measured.
 	"""
 
-	parser = argparse.ArgumentParser(description = "")
+	parser = argparse.ArgumentParser(description = __doc__)
 	parser.add_argument("-a", "--alphabet", type = set, help = "Alphabet of allowed characters. All other characters will be ignored when calculating cost")
 	parser.add_argument("testfile", type = argparse.FileType('r'), help = "Input FASTA file containing sequences for which to calculate the coding cost using an n-th order Markov chain.")
 	args = parser.parse_args()
@@ -58,17 +63,10 @@ def measure_coding_cost(testfile, parser, probability_dict, k, alphabet):
 	for name, description, seq in parser(testfile):
 		fixed_seq = markov.fix_sequence(seq, alphabet, k)
 		
-		#Remove one of the start characters added by fix_sequence so that the first character encoded is a sequence
-		#character. Start characters shouldn't be
-		#encoded because the characters at the beginning of every sequence are always start characters
-		#even though start characters will have a less-than-one probability of occuring at the beginning 
-		#based on counts. Stop characters should be encoded because they don't always occur in the same place in
-		#every sequence.
-		fixed_seq = fixed_seq[1:]
 
-		#The stop characters aren't included in the character count, though including them
+		#The stop and start characters aren't included in the character count, though including them
 		#would also be valid.
-		char_count += len(fixed_seq) - 2*k + 1
+		char_count += len(fixed_seq) - 2*k
 
 		seq_count += 1
 
@@ -77,7 +75,6 @@ def measure_coding_cost(testfile, parser, probability_dict, k, alphabet):
 		#at position k-1 assuming that the data is modeled by a markov chain of order k-1.
 		for kmer in markov.read_kmer(fixed_seq, k):
 			log_p_kmer = probability_dict[kmer]
-			#print(kmer, log_p_kmer)
 			cost += -1*log_p_kmer
 	return (cost/char_count, cost/seq_count)
 
@@ -89,15 +86,21 @@ def main():
 	args = parse_arguments()
 	counts = read_count_table(sys.stdin)
 	order = len(counts.items()[0][0]) - 1 #length of the first key (kmer) in the counts table is one more than the order
-	k = order + 1
+	k = order + 1 #Convert from order to kmer length, and use kmer length rather than order for the rest of the program
 	
 	alphabet = args.alphabet #Try to use the alphabet provided by the user.
 	if alphabet is None:
 		alphabet = detect_alphabet(counts)
 
-	
+	#Make sure the alphabet includes start and stop characters
+	alphabet = alphabet.union(set(['$', '^']))
+
+	#make a log2 conditional probability table for the table of counts, with non-zero
+	#probabilities guaranteed for every valid kmer over alphabet
 	probability_dict = markov.make_probability_dict(counts, alphabet, k)
-	
+
+	#Measure the coding cost for the testing file using the Markov model specified
+	#by the probability table
 	cost = measure_coding_cost(args.testfile, sequence_parser.read_fasta, probability_dict, k, alphabet)
 	print("cost per character: {0}\ncost per sequence: {1}".format(*cost))
 

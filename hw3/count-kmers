@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-#Alden Deran (adderan)
+#Alden Deran (adderan) BME 205 hw3
 
 from __future__ import print_function
 
@@ -8,22 +8,30 @@ import sys, sequence_parser, argparse, string, markov, operator
 
 """Reads a FASTA file and outputs the number of occurrences of each kmer.
 
-Output is in the format [k-mer] (tab) [count] and goes to standard output. A k-mer is defined
+Output is in the format [kmer] (tab) [count] and goes to standard output. A kmer is defined
 as a length-k sequence of characters.
 """
 
 def parse_arguments():
-	parser = argparse.ArgumentParser()
+	"""Parse the order of the Markov chain and the alphabet of characters to allow."""
+
+	parser = argparse.ArgumentParser(description = __doc__)
 	parser.add_argument("-o", "--order", type = int, default = 0, help = "Length of the kmers to count. Defaults to 1.")
-	parser.add_argument("-a", "--alphabet", type = set, default = set(string.letters), help = "The set of characters to count in kmers. All other characters will be ignored. Defaults to the set of uppercase and lowercase letters")
+	parser.add_argument("-a", "--alphabet", type = set, default = set(string.printable), help = "The set of characters to count in kmers. All other characters will be ignored. Defaults to the set of uppercase and lowercase letters")
 	args = parser.parse_args()
 	return args
 
 def main():
+	"""Parse the order and alphabet, then read each sequence from stdin using a FASTA parser,
+	remove all non-alphabetic characters from the sequence, convert it to uppercase, add k start and stop 
+	characters to the sequence, and incrememnt the count for every kmer in the sequence. Once all sequences 
+	have been read, output the counts.
+	"""
 	args = parse_arguments()
 
 	#count the number of k-mers with k = order + 1, since a zeroth oder markov model uses 1-mers.
-	counts = markov.get_counts(sys.stdin, sequence_parser.read_fasta, args.order + 1, args.alphabet)
+	counts = markov.get_counts(sequence_parser.read_fasta(sys.stdin), args.order + 1, args.alphabet)
+
 
 	counts_sorted = sorted(counts.items(), key = operator.itemgetter(0)) #sort alphabetically
 	

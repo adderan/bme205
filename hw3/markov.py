@@ -1,6 +1,11 @@
 import collections, itertools, math
 
-def get_counts(infile, parser, k, alphabet):
+#Alden Deran (adderan), BME 205 hw3
+
+"""Functions for counting kmers in a sequence, iterating through kmers over an alphabet, checking the 
+validity of kmers, and estimating the probability of a kmer by its number of occurrences in a file."""
+
+def get_counts(parser, k, alphabet):
 	"""Uses the provided parser to read sequences from infile, and counts the number of occurrences 
 	of each k-mer in the file. The parser should yield tuples of (name, description, sequence). A k-mer 
 	is defined as a string of length k, containing characters in the provided alphabet. Characters 
@@ -15,17 +20,15 @@ def get_counts(infile, parser, k, alphabet):
 	#This means that counts["AAA"] is the number of occurences
 	#of "AAA" in the input file.
 	counts = collections.Counter()
+		
 
+	for name, description, seq in parser:
 
-
-	for name, description, seq in parser(infile):
-
-		fixed_seq = fix_sequence(seq, alphabet, k) 
+		fixed_seq = fix_sequence(seq, alphabet, k)
 
 		#Step through the sequence and increment the count for 
 		#the substring of the sequence starting at the current position and 
 		#continuing for k characters, where k is the length of the k-mers being counted.
-		#The one added to the range of the loop causes the last character to be counted.
 		for kmer in read_kmer(fixed_seq, k):
 			counts[kmer] += 1
 
@@ -51,16 +54,25 @@ def fix_sequence(sequence, alphabet, k):
 
 	good_characters = []
 	for character in sequence:
-		if character in alphabet:
-			good_characters.append(character.upper())
-	good_characters = start_chars + good_characters + stop_chars
-	fixed_sequence = ''.join(good_characters)
-	return fixed_sequence
+		character_upper = character.upper()
+		if character_upper in alphabet:
+			good_characters.append(character_upper)
 
-def iter_kmers(alphabet, k):
+	full_sequence = start_chars + good_characters + stop_chars
+	full_sequence = ''.join(full_sequence)
+	return full_sequence
+
+def iter_kmers(alphabet, k, include_start_kmer):
 	"""Iterates through every valid kmer (string of length k) over the 
 	provided alphabet. The validity of kmers is determined by the 
-	is_valid_kmer() function.
+	is_valid_kmer() function. If include_start_kmer is True, the kmer containing
+	only ^ characters will be yielded as one possible kmer. This may be undesirable
+	when making conditional probability tables, because that kmer always occurs
+	at the beginning of a sequence, but will be given a less-than-one probability based
+	on counts, and will affect the counts of other kmers beginning with k-1 ^ characters. 
+	The kmer consisting of only $ characters will always be yielded, because all characters
+	after $ in a valid kmer must also be $. This means that, for example, the kmer $$$ will always have conditional
+	probability 1 with condition $$, which is not true for the kmer ^^^ and condition ^^.
 	"""
 
 	#make sure the start and stop characters are in the alphabet
@@ -76,14 +88,15 @@ def iter_kmers(alphabet, k):
 		
 		#check if this kmer contains any $ or ^ characters in the wrong place, since
 		#the cross product generates all kmers and some are invalid.
-		if is_valid_kmer(kmer):
+		if is_valid_kmer(kmer, include_start_kmer):
 			yield ''.join(kmer)
 
-def is_valid_kmer(kmer):
+def is_valid_kmer(kmer, include_start_kmer):
 	"""Checks whether the provided kmer meets the following conditions:
 	1) The '$' character does not appear before any character except '$'
-	2) The '^' character does not appear after any character other than '^'
-	If the conditions are met, returns True. Otherwise returns false.
+	2) The '^' character does not appear after any character except '^'
+	3) If include_start_kmer is False, the kmer does not consist of only ^ characters.
+	If all the conditions are met, returns True. Otherwise returns false.
 	"""
 
 	#In mode 0, ^ characters are expected, and other characters trigger a switch to the
@@ -106,36 +119,62 @@ def is_valid_kmer(kmer):
 		if mode == 2:
 			if character != '$':
 				valid_kmer = False
+	#if mode is still zero, the kmer only has ^ characters
+	if not include_start_kmer and mode == 0:
+		valid_kmer = False
 	return valid_kmer
 
 	
 
-def make_probability_dict(counts, alphabet, order):
+def make_probability_dict(counts, alphabet, k):
 	"""Returns a dict containing the base 2 logarithm of the estimated probabilities of
-	each valid kmer over the provided alphabet, given it's condition. The condition of a kmer
-	is defined as the string containing its first k-1 characters. The probabilities are estimated
-	from a provided dictionary of counts of various kmers, and a non-zero probability is guaranteed for
-	every valid kmer over the given alphabet.
+	each valid kmer over the provided alphabet, given it's condition. The alphabet should be a python 
+	set. The condition of a kmer is defined as the string containing its first k-1 characters. The probabilities are estimated
+	from a provided dictionary of counts of various kmers, obtained from a training dataset.
+	A non-zero probability is guaranteed for every valid kmer over the given alphabet.
 	"""
-
-	k = order + 1
-
+	#pseudocounts will store a count for every allowed kmer over the alphabet.
+	#Valid kmers that aren't obesrved in the counts dict will be given a pseudocount of 1.0
+	#so that the probability of every valid kmer is non-zero.
 	pseudocounts = collections.defaultdict(float)
+
+	#add the counts of all the observed kmers to the pseudocounts 
 	for kmer, count in counts.items():
-		pseudocounts[kmer] = float(count)
+		if is_valid_kmer(kmer, False): #don't want to include start kmers here because they shouldn't affect other probabilities.
+			pseudocounts[kmer] = float(count)
 
-	for kmer in iter_kmers(alphabet, k):
+	#add 1.0 to the pseudocount of every valid kmer
+	for kmer in iter_kmers(alphabet, k, False):
 		pseudocounts[kmer] += 1.0
-
+	
+	#create a dictionary to hold the logarithm base 2 of the probabilities of each valid kmer.
 	conditional_probabilities = collections.defaultdict(float)
-	for kmer in iter_kmers(alphabet, k - 1):
-		sum = 0
-		for character in alphabet:
-			sum += pseudocounts[kmer + character]
-		for character in alphabet:
-			sub_kmer = kmer + character
-			if is_valid_kmer(sub_kmer):
-				conditional_probabilities[sub_kmer] = math.log(float(pseudocounts[sub_kmer]), 2) - math.log(sum, 2)
 
+
+	#Iterate through every valid condition. All valid conditions are generated by iterating through
+	#each n-mer, where n = k - 1. Then each character from the alphabet can be appended to the condition
+	#to yield every kmer with that condition (the resulting kmers are then checked for validity, because some
+	#will be invalid). A sum of the pseudocounts of every kmer with that condition can be calculated, allowing the
+	#conditonal probability of each kmer given its condition to be calculated by dividing its pseudocount by the sum
+	#for its condition.
+
+	#Should include start kmers here, because another character will be appended to the condition, and
+	#kmers such as ^^A are valid.
+	for condition in iter_kmers(alphabet, k - 1, True):
+		sum = 0
+
+		#Find the sum of pseudocounts over every kmer with this condition
+		for character in alphabet:
+			sum += pseudocounts[condition + character]
+		
+		#fill the conditional probability table for this condition
+		for character in alphabet:
+			kmer = condition + character
+
+			#Since all characters in the alphabet are being tried, the validity of the kmer must be checked
+			#because invalid kmers (and start-only kmers) will have zero pseudocount, causing a math error when taking the 
+			#logarithm.
+			if is_valid_kmer(kmer, False):
+				conditional_probabilities[kmer] = math.log(pseudocounts[kmer], 2) - math.log(sum, 2)
 	return conditional_probabilities
 				
