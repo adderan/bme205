@@ -39,7 +39,7 @@ def read_fasta(infile, reading_quality_values = False):
 				seq += " "
 	yield (name, description, seq) #yield the last sequence in the file.
 
-def read_fastq(infile):
+def read_fastq(infile, phred_value):
 	name = None
 	description = None
 	seq = None
@@ -67,11 +67,12 @@ def read_fastq(infile):
 				if seq is None: seq = ''
 				seq += line
 		elif mode == "quality":
-			if quality is None: quality = ''
-			quality += line
+			if quality is None: quality = []
+			quality += list(line)
 			if len(quality) == len(seq):
 				mode = "nucleotide"
-				yield (name, description, seq, quality)
+				decoded_quality = [ord(character) - phred_value for character in quality]
+				yield (name, description, seq, decoded_quality)
 				seq = None
 				description = None
 				name = None

@@ -28,23 +28,24 @@ def parse_arguments():
 	return args
 
 def main():
+	"""Reads sequences and the corresponding quality values from either a FASTA file or a 
+	FASTQ file with phred-33 or phred-64 quality encoding. For each sequence, a corresponding sequence
+	is printed with all the characters after the first low-quality character removed. A low-quality character
+	in a sequence is one whose corresponding quality value is below the given minimum quality.
+	"""
 	args = parse_arguments()
-	phred = None
+
 	if args.in_fasta:
 		parse_input = sequence_parser.read_fasta_with_quality(args.in_fasta, args.in_qual)
 	elif args.in_33:
-		parse_input = sequence_parser.read_fastq(args.in_33)
-		phred = 33
+		parse_input = sequence_parser.read_fastq(args.in_33, 33)
 	else: #fastq with phred 64 is the last possible option
-		parse_input = sequence_parser.read_fastq(args.in_64)
-		phred = 64
+		parse_input = sequence_parser.read_fastq(args.in_64, 64)
 		
 	
 	for name, description, sequence, quality in parse_input:
 
-		if phred is not None:
-			quality_converted = [ord(q) - phred for q in quality]
-		endtrimmed_sequence = trim_end(sequence, quality, args.min_qual)
+		endtrimmed_sequence, endtrimmed_quality = trim_end(sequence, quality, args.min_qual)
 
 		if args.out_fasta:
 			print_fasta(name, description, sequence, quality, args.out_fasta, args.out_qual)
@@ -60,7 +61,8 @@ def trim_end(sequence, quality, min_quality):
 		return sequence
 	for i in range(len(quality)):
 		if quality[i] < min_quality:
-			return sequence[0:i]
+			return (sequence[0:i], quality[0:i])
+	return (sequence, quality)
 
 def print_fasta(name, description, sequence, quality, sequencefile, qualityfile):
 	print(">", name, ' ', description, sep = '', file = sequencefile)

@@ -1,0 +1,47 @@
+#!/usr/bin/env python2.7
+
+from __future__ import print_function
+import palindromes, sys, argparse, gzip, sequence_parser, collections, operator
+
+def parse_arguments():
+	parser = argparse.ArgumentParser(description = __doc__)
+	parser.add_argument("-e", "--max_e", default = 0.01, type = float, help = "Maximum E-value for palindromes to count as underrepresented or overrepresented.")
+	parser.add_argument("-k", "--max_k", default = 3, type = int, help = "Maximum palindrome size to include in results.")
+	parser.add_argument("-m", "--min_k", default = 0, type = int, help = "Minimum palindrome size to include in results.")
+	parser.add_argument("filenames", type = str, nargs = "*")
+
+	args = parser.parse_args()
+	return args
+
+
+	
+
+def main():
+	args = parse_arguments()
+
+	alphabet = set(['A', 'C', 'T', 'G'])
+
+	counts = collections.Counter()
+	N = 0
+	for filename in args.filenames:
+		seq_file = gzip.open(filename, 'rb')
+		for name, description, seq in sequence_parser.read_fasta(seq_file):
+			counts = palindromes.count_kmers_in_range(alphabet, seq, args.min_k - 2, args.max_k, counts)
+			N += len(seq)
+	#print(counts)
+	print(counts["AATT"])
+	palindrome_stats = []
+	for palindrome in palindromes.iter_palindrome_range(alphabet, args.min_k, args.max_k):
+		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N))
+	palindrome_stats = sorted(palindrome_stats, key = operator.itemgetter(5))
+
+	for palindrome, observed, expected, Z, P, E in palindrome_stats:
+		if E > args.max_e:
+			pass
+		print(palindrome, observed, expected, Z, P, E)
+	
+	#for kmer, count in counts.most_common():
+	#	print(kmer, count)
+
+if __name__ == "__main__":
+	sys.exit(main())
