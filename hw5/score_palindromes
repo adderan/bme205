@@ -1,47 +1,109 @@
 #!/usr/bin/env python2.7
 
+#Alden Deran (adderan)
+"""Reads a set of sequences from an arbitrary number of input files
+and checks whether each palindrome (k-mer that is its reverse complement)
+is under-represented or over-represented. Odd-length palindromes are accomodated
+by allowing even-length palindromes with either a 'G' or 'T' character inserted
+in the middle. Over- or under-representation is determined by a null model for the probability
+of getting a palindrome by extending it's n-2 palindrome (first and last characters removed) in
+both directions according to an order (n-1) Markov chain."""
+
 from __future__ import print_function
-import palindromes, sys, argparse, gzip, sequence_parser, collections, operator
+import palindromes, sys, argparse, gzip, sequence_parser, collections, operator, time, string
 
 def parse_arguments():
+	"""Parse a float argument --max_e for the maximum E-value palindrome
+	to print in the output table, and integer arguments --min_k and --max_k
+	for the length range to search for under-represented or over-represented
+	palindromes."""
+	
 	parser = argparse.ArgumentParser(description = __doc__)
-	parser.add_argument("-e", "--max_e", default = 0.01, type = float, help = "Maximum E-value for palindromes to count as underrepresented or overrepresented.")
-	parser.add_argument("-k", "--max_k", default = 3, type = int, help = "Maximum palindrome size to include in results.")
-	parser.add_argument("-m", "--min_k", default = 0, type = int, help = "Minimum palindrome size to include in results.")
+	parser.add_argument("-e", "--max_e", default = 0.1, type = float, help = "Maximum E-value for palindromes to count as underrepresented or overrepresented.")
+	parser.add_argument("-k", "--max_k", default = 2, type = int, help = "Maximum palindrome size to include in results.")
+	parser.add_argument("-m", "--min_k", default = 8, type = int, help = "Minimum palindrome size to include in results.")
 	parser.add_argument("filenames", type = str, nargs = "*")
 
 	args = parser.parse_args()
 	return args
 
 
-	
-
 def main():
+	"""Reads and counts kmers from all input files, computes Z-scores and E-values
+	for each palindrome according to the null model. Outputs the most under- or over-represented
+	palindromes in a table with five columns (palindrome, observed counts, axpected counts, Z-score, E-value."""
 	args = parse_arguments()
+	start_time = time.time()
 
 	alphabet = set(['A', 'C', 'T', 'G'])
+	wildcard_map = {"S" : ["A","T"], "W" : ["G", "C"]}
+	wildcard_inverse_map = {"A": "S", "T": "S", "G": "W", "C": "W"}
 
+	#Odd-length palindromes are allowed by defining
+	#an odd-length palindrome as an even palindrome with
+	#either 'G' or 'T' inserted in the middle. That way
+	#AAGAA is a palindrome even though its reverse compliment
+	#is AACAA, but AATAA is a different palindrome whose compliment
+	#IS AAAAA.
+	allowed_middle_characters = set(['S', 'W'])
+	
+	#counter object such that counts[kmer] will hold the number of counts
+	#of kmer in all input files.
 	counts = collections.Counter()
-	N = 0
+	N = 0 #Number of total (alphabetic) characters in the genome
+
 	for filename in args.filenames:
 		seq_file = gzip.open(filename, 'rb')
 		for name, description, seq in sequence_parser.read_fasta(seq_file):
-			counts = palindromes.count_kmers_in_range(alphabet, seq, args.min_k - 2, args.max_k, counts)
-			N += len(seq)
-	#print(counts)
-	print(counts["AATT"])
+
+			#Remove all characters not in the alphabet
+			fixed_seq = palindromes.remove_non_alphabetical(alphabet, seq)
+
+			#The Markov for models length-n palindromes as extensions of
+			#length n-2 palindromes in both directions, so n-2 kmers should
+			#be counted, where n is the smallest length palindrome being
+			#analyzed.
+			counts = counts + palindromes.count_kmers_in_range(fixed_seq, args.min_k - 2, args.max_k)
+
+			#Include characters from the reverse complement strand
+			N += len(fixed_seq)*2
+
+
+	print("Total run time after reading files:", time.time() - start_time, "s", file = sys.stderr)	
+
+	for palindrome in palindromes.iter_palindrome_range(args.min_k - 2, args.max_k, wildcard_inverse_map, alphabet):
+		if len(palindrome) % 2 == 0:
+			continue
+		middle = len(palindrome)/2
+		middle_char = palindrome[middle]
+		wilcard = wildcard_inverse_map[
+
+	
+	#List all palindromes, including odd palindromes in the range, with the two possible middle characters.
+	palindrome_list = [palindrome for palindrome in palindromes.iter_palindrome_range(args.min_k, args.max_k, allowed_middle_characters, alphabet)]
+
+	#If n, palindromes are being analyzed, 2*n hypotheses
+	#are being tested because a palindrome can either
+	#be over-represented or under-represented
+	N_hypotheses = len(palindrome_list) * 2
+
+		
+
+	#will hold tuples of information about each palindrome
 	palindrome_stats = []
-	for palindrome in palindromes.iter_palindrome_range(alphabet, args.min_k, args.max_k):
-		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N))
+
+	for palindrome in palindrome_list:
+		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N, N_hypotheses, table))
+
+	#Sort that palindromes b E-value
 	palindrome_stats = sorted(palindrome_stats, key = operator.itemgetter(5))
 
+	print("Total run time after computing statistics:", time.time() - start_time, "s", file = sys.stderr)
+	print("{:11s}{:11s}{:11s}{:11s}{:11s}".format("palindrome", "observed", "expected", "Z-score", "E-value"))
 	for palindrome, observed, expected, Z, P, E in palindrome_stats:
 		if E > args.max_e:
-			pass
-		print(palindrome, observed, expected, Z, P, E)
-	
-	#for kmer, count in counts.most_common():
-	#	print(kmer, count)
+			continue
+		print("{:s} {:11d} {:11.4f} {:11.4f} {:11.3e}".format(palindrome, observed, expected, Z, E))
 
 if __name__ == "__main__":
 	sys.exit(main())

@@ -4,16 +4,31 @@ import string, itertools, collections, math, sys
 
 complement_table = string.maketrans("ACGT", "TGCA")
 def reverse_comp(dna):
+	"""Returns the given sequence reversed, with each
+	character replaced by its opposite strand 
+	complement (A -> T, C -> G, T -> A, G -> C)."""
+	
+	#This function was directly copied from the BME 205 homework
+	#5 assignment description.
+	
+
 	return dna[::-1].translate(complement_table)
 
 def iter_kmers(alphabet, k):
+	"""Generator function that yields every kmer (substring of length k) over an
+	alphabet, which should be given as a Python set."""
+
 	alphabets = [alphabet for i in xrange(k)]
 
 	for kmer in itertools.product(*alphabets):
 		yield ''.join(kmer)
 
-allowed_middle_characters = ['G', 'C']
-def iter_palindromes(alphabet, k):
+
+def iter_palindromes(k, allowed_middle_characters, alphabet):
+	"""Generator function that yields every DNA reverse-complement palindrome
+	of length k, including odd palindromes with center characters determined by
+	allowed_middle_characters."""
+
 	for kmer in iter_kmers(alphabet, k/2):
 		comp = reverse_comp(kmer)
 		if k % 2 != 0:
@@ -22,49 +37,84 @@ def iter_palindromes(alphabet, k):
 		else:
 			yield kmer + comp
 
-def iter_palindrome_range(alphabet, k1, k2):
+def iter_palindrome_range(k1, k2, allowed_middle_characters, alphabet):
+	"""Generator function that yields all DNA reverse 
+	complement palindromes from length k1 to k2, including
+	palindromes of length k1 and k2."""
+
 	for k in xrange(k1, k2 + 1):
-		for palindrome in iter_palindromes(alphabet, k):
+		for palindrome in iter_palindromes(k, allowed_middle_characters, alphabet):
 			yield palindrome
 			
 		
-def count_kmers(seq, k, counts):
+def count_kmers(seq, k):
+	"""Counts all k-mers in seq and returns a
+	collections.Counter() object containing
+	the counts."""
+
+	counts = collections.Counter()
 	for start in xrange(len(seq) - k + 1):
 		counts[seq[start:start + k]] += 1
 	return counts
 
 def remove_non_alphabetical(alphabet, seq):
+	"""Removes all characters from seq that are not in the set alphabet."""
 	fixed_seq = []
 	for character in seq:
 		if character in alphabet:
 			fixed_seq.append(character)
 	return ''.join(fixed_seq)
 			
-def count_kmers_in_range(alphabet, seq, k1, k2, counts):
-	fixed_seq = remove_non_alphabetical(alphabet, seq)
+def count_kmers_in_range(seq, k1, k2):
+	"""Returns a counter containing all kmers of length
+	k1 through k2 in seq."""
+
+	counts = collections.Counter()
 	for k in range(k1, k2 + 1):
-		counts = count_kmers(fixed_seq, k, counts)
+		counts = counts + count_kmers(seq, k)
 	return counts
-
-def palindrome_statistics(palindrome, counts, N):
-	prefix = palindrome[1:]
-	suffix = palindrome[0:len(palindrome)-1]
+def make_equivalent_palindrome(palindrome, table):
+	if len(palindrome) % 2 == 0:
+		return palindrome
+	else:
+		palindrome = list(palindrome)
+		palindrome[len(palindrome)/2] = palindrome[len(palindrome)/2].translate(table)
+		return ''.join(palindrome)
+def find_expected_counts(palindrome, counts):
+	suffix = palindrome[1:]
+	prefix = palindrome[0:len(palindrome)-1]
 	center = palindrome[1:len(palindrome)-1]
-
-	#print(center, counts[center])
 	if counts[center] == 0:
-		return (palindrome, 0, 0, 0, 0, sys.maxint)
+		print("Warning: Zero count for:", palindrome, sys.stderr)
+		return 0
 	else:
 		expected_counts = float(counts[prefix])*float(counts[suffix])/counts[center]
+		return expected_counts
 
+def palindrome_statistics(palindrome, counts, N, N_hypotheses, table):
+	"""Takes a palindrome as a string, kmer counts as a 
+	collections.Counter(), and integers containing the number of
+	characters that were read to measure the counts and the number
+	of palindromes that are being studied in this experiment. Computes
+	the expected number of occurrences of the palindrome in N characters
+	assuming that palindromes are formed by a Markov Model in both directions.""" 
+	
+	expected_counts = find_expected_counts(palindrome, counts)
+	if len(palindrome) %2 != 0:
+		equiv_palindrome = make_equivalent_palindrome(palindrome, table)
+		expected_counts += find_expected_counts(equiv_palindrome, counts)
+	
+		
+
+	
 	sigma = math.sqrt(expected_counts * (1 - expected_counts/N))
 
-	Z = (counts[palindrome] - expected_counts)/sigma
+	Z = (2*counts[palindrome] - expected_counts)/sigma
 
 	sign = 1
 	if Z < 0:
 		sign = -1
 	P = math.erfc(abs(Z)/math.sqrt(2))/2
-	return (palindrome, counts[palindrome], expected_counts, Z, P, N*P)
+	return (palindrome, counts[palindrome], expected_counts, Z, P, N_hypotheses*P)
 
 
