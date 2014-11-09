@@ -36,8 +36,8 @@ def main():
 	start_time = time.time()
 
 	alphabet = set(['A', 'C', 'T', 'G'])
-	wildcard_map = {"S" : ["A","T"], "W" : ["G", "C"]}
-	wildcard_inverse_map = {"A": "S", "T": "S", "G": "W", "C": "W"}
+	#wildcard_map = {"S" : ["A","T"], "W" : ["G", "C"]}
+	#wildcard_inverse_map = {"A": "S", "T": "S", "G": "W", "C": "W"}
 
 	#Odd-length palindromes are allowed by defining
 	#an odd-length palindrome as an even palindrome with
@@ -45,7 +45,7 @@ def main():
 	#AAGAA is a palindrome even though its reverse compliment
 	#is AACAA, but AATAA is a different palindrome whose compliment
 	#IS AAAAA.
-	allowed_middle_characters = set(['S', 'W'])
+	allowed_middle_characters = set(['G', 'T'])
 	
 	#counter object such that counts[kmer] will hold the number of counts
 	#of kmer in all input files.
@@ -70,14 +70,6 @@ def main():
 
 
 	print("Total run time after reading files:", time.time() - start_time, "s", file = sys.stderr)	
-
-	for palindrome in palindromes.iter_palindrome_range(args.min_k - 2, args.max_k, wildcard_inverse_map, alphabet):
-		if len(palindrome) % 2 == 0:
-			continue
-		middle = len(palindrome)/2
-		middle_char = palindrome[middle]
-		wilcard = wildcard_inverse_map[
-
 	
 	#List all palindromes, including odd palindromes in the range, with the two possible middle characters.
 	palindrome_list = [palindrome for palindrome in palindromes.iter_palindrome_range(args.min_k, args.max_k, allowed_middle_characters, alphabet)]
@@ -93,7 +85,7 @@ def main():
 	palindrome_stats = []
 
 	for palindrome in palindrome_list:
-		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N, N_hypotheses, table))
+		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N, N_hypotheses))
 
 	#Sort that palindromes b E-value
 	palindrome_stats = sorted(palindrome_stats, key = operator.itemgetter(5))

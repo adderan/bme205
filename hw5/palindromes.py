@@ -73,13 +73,17 @@ def count_kmers_in_range(seq, k1, k2):
 	for k in range(k1, k2 + 1):
 		counts = counts + count_kmers(seq, k)
 	return counts
-def make_equivalent_palindrome(palindrome, table):
+
+def make_equivalent_palindrome(palindrome, allowed_middle_characters):
 	if len(palindrome) % 2 == 0:
 		return palindrome
 	else:
 		palindrome = list(palindrome)
-		palindrome[len(palindrome)/2] = palindrome[len(palindrome)/2].translate(table)
+		middle = len(palindrome)/2
+		palindrome[middle] = reverse_comp(palindrome[middle])
 		return ''.join(palindrome)
+
+
 def find_expected_counts(palindrome, counts):
 	suffix = palindrome[1:]
 	prefix = palindrome[0:len(palindrome)-1]
@@ -91,7 +95,7 @@ def find_expected_counts(palindrome, counts):
 		expected_counts = float(counts[prefix])*float(counts[suffix])/counts[center]
 		return expected_counts
 
-def palindrome_statistics(palindrome, counts, N, N_hypotheses, table):
+def palindrome_statistics(palindrome, counts, N, N_hypotheses):
 	"""Takes a palindrome as a string, kmer counts as a 
 	collections.Counter(), and integers containing the number of
 	characters that were read to measure the counts and the number
@@ -100,21 +104,20 @@ def palindrome_statistics(palindrome, counts, N, N_hypotheses, table):
 	assuming that palindromes are formed by a Markov Model in both directions.""" 
 	
 	expected_counts = find_expected_counts(palindrome, counts)
+	observed_counts = counts[palindrome]
 	if len(palindrome) %2 != 0:
-		equiv_palindrome = make_equivalent_palindrome(palindrome, table)
+		equiv_palindrome = make_equivalent_palindrome(palindrome)
 		expected_counts += find_expected_counts(equiv_palindrome, counts)
-	
+		observed_counts += counts[equiv_palindrome]
 		
-
-	
 	sigma = math.sqrt(expected_counts * (1 - expected_counts/N))
 
-	Z = (2*counts[palindrome] - expected_counts)/sigma
+	Z = (2*observed_counts - expected_counts)/sigma
 
 	sign = 1
 	if Z < 0:
 		sign = -1
 	P = math.erfc(abs(Z)/math.sqrt(2))/2
-	return (palindrome, counts[palindrome], expected_counts, Z, P, N_hypotheses*P)
+	return (palindrome, observed_counts, expected_counts, Z, P, N_hypotheses*P)
 
 
