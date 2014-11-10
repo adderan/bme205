@@ -36,13 +36,11 @@ def main():
 	start_time = time.time()
 
 	alphabet = set(['A', 'C', 'T', 'G'])
-	#wildcard_map = {"S" : ["A","T"], "W" : ["G", "C"]}
-	#wildcard_inverse_map = {"A": "S", "T": "S", "G": "W", "C": "W"}
 
 	#Odd-length palindromes are allowed by defining
 	#an odd-length palindrome as an even palindrome with
 	#either 'G' or 'T' inserted in the middle. That way
-	#AAGAA is a palindrome even though its reverse compliment
+	#AAGAA is a palindrome even though its reverse complement
 	#is AACAA, but AATAA is a different palindrome whose compliment
 	#IS AAAAA.
 	allowed_middle_characters = set(['G', 'T'])
@@ -87,7 +85,7 @@ def main():
 	for palindrome in palindrome_list:
 		palindrome_stats.append(palindromes.palindrome_statistics(palindrome, counts, N, N_hypotheses))
 
-	#Sort that palindromes b E-value
+	#Sort by E-value
 	palindrome_stats = sorted(palindrome_stats, key = operator.itemgetter(5))
 
 	print("Total run time after computing statistics:", time.time() - start_time, "s", file = sys.stderr)

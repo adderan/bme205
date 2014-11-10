@@ -1,5 +1,7 @@
 #Alden Deran (adderan) BME 205
 
+"""Defines functions for modeling the frequency of palindromes in
+DNA sequences."""
 import string, itertools, collections, math, sys
 
 complement_table = string.maketrans("ACGT", "TGCA")
