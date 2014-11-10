@@ -74,17 +74,13 @@ def count_kmers_in_range(seq, k1, k2):
 		counts = counts + count_kmers(seq, k)
 	return counts
 
-def make_equivalent_palindrome(palindrome, allowed_middle_characters):
-	if len(palindrome) % 2 == 0:
-		return palindrome
-	else:
-		palindrome = list(palindrome)
-		middle = len(palindrome)/2
-		palindrome[middle] = reverse_comp(palindrome[middle])
-		return ''.join(palindrome)
-
 
 def find_expected_counts(palindrome, counts):
+	"""Calculates the number of expected counts for a length-n palindrome
+	by extending its center n-1 characters in both directions according to 
+	a Markov chain. Takes a dictionary of counts for maximum-likelihood 
+	estimation of the Markov chain conditional probabilities. Returns the
+	number of expected counts"""
 	suffix = palindrome[1:]
 	prefix = palindrome[0:len(palindrome)-1]
 	center = palindrome[1:len(palindrome)-1]
@@ -106,13 +102,13 @@ def palindrome_statistics(palindrome, counts, N, N_hypotheses):
 	expected_counts = find_expected_counts(palindrome, counts)
 	observed_counts = counts[palindrome]
 	if len(palindrome) %2 != 0:
-		equiv_palindrome = make_equivalent_palindrome(palindrome)
+		equiv_palindrome = reverse_comp(palindrome)
 		expected_counts += find_expected_counts(equiv_palindrome, counts)
 		observed_counts += counts[equiv_palindrome]
 		
 	sigma = math.sqrt(expected_counts * (1 - expected_counts/N))
 
-	Z = (2*observed_counts - expected_counts)/sigma
+	Z = (observed_counts - expected_counts)/sigma
 
 	sign = 1
 	if Z < 0:

@@ -66,7 +66,7 @@ def main():
 			counts = counts + palindromes.count_kmers_in_range(fixed_seq, args.min_k - 2, args.max_k)
 
 			#Include characters from the reverse complement strand
-			N += len(fixed_seq)*2
+			N += len(fixed_seq)
 
 
 	print("Total run time after reading files:", time.time() - start_time, "s", file = sys.stderr)	
