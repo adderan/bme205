@@ -1,0 +1,98 @@
+#!/usr/bin/env python2.7
+
+#Alden Deran (adderan)
+
+from __future__ import print_function
+import argparse, sys, random, string, collections, bisect
+
+complement_table = string.maketrans("ACTG", "TGAC")
+
+
+def parse_arguments():
+	parser = argparse.ArgumentParser(description = "Generates long ORFs (sequences of"
+		"codons beginning with ATG and containing no stop codons, and outputs a histogram"
+		"of the lengths of the longest ORF on the opposite strand of the one generated.")
+	parser.add_argument("--protein", type = argparse.FileType('r'),  help = "Protein sequence.")
+	parser.add_argument("--codon", type = argparse.FileType('r'), help = "Codon bias table.")
+	parser.add_argument("--num_sequences", type = int, help = "Number of sequences to generate.")
+
+	args = parser.parse_args()
+	return args
+
+def main():
+	args = parse_arguments()
+	codon_table = parse_codon_table(args.codon)
+	codon_list, cumulative_counts = process_codon_table(codon_table)
+
+	#protein = generate_protein(10, codon_list, cumulative_counts)
+	#print(protein)
+	#rc_protein = length_of_longest_reverse_strand_orf(protein)
+
+	rc_orf_length = collections.Counter()
+	for i in xrange(args.num_sequences):
+		protein = generate_protein(560, codon_list, cumulative_counts)
+		longest_rc_orf = length_of_longest_reverse_strand_orf(protein)
+		rc_orf_length[longest_rc_orf] += 1
+	print(rc_orf_length)
+
+def parse_codon_table(infile):
+	codon_bias = {}
+	for line in infile:
+		codon_info = line.split()
+		if len(codon_info) != 5: continue
+		codon = codon_info[1]
+		count = int(float(codon_info[2]))
+		codon_bias[codon] = count
+	codon_bias["TAG"] = 0
+	codon_bias["TAA"] = 0
+	codon_bias["TGA"] = 0
+	return codon_bias
+		
+
+def process_codon_table(codon_bias):
+	"""Turns dictionary (codon_bias[codon] = n/thousand) into
+	a list containing n of each codon, adding up to 1000 total
+	entries."""
+
+	codon_list = []
+	cumulative_counts = []
+	cumulative_count = 0
+	for codon, count in codon_bias.items():
+		cumulative_count += count
+		codon_list.append(codon)
+		cumulative_counts.append(cumulative_count)
+	return (codon_list, cumulative_counts)
+
+def length_of_longest_reverse_strand_orf(protein):
+	protein_rc = protein[::-1].translate(complement_table)
+	longest_orf = 0
+	codon = ""
+	for frame in xrange(len(protein_rc)):
+		index = frame
+		while codon != "TAG" and codon != "TAA" and codon != "TGA" and index + 3 < len(protein_rc):
+			codon = protein_rc[index:index + 3]
+			index += 3
+		if index - frame > longest_orf:
+			longest_orf = index - frame
+	return longest_orf
+
+	
+
+def generate_protein(length, codon_list, cumulative_counts):
+	protein = []
+	protein += ["A","T","G"]
+	for i in xrange(length):
+		#print("Max count is ", max(cumulative_counts))
+		score = random.choice(range(max(cumulative_counts)))
+		#print("Score is ", score)
+		index = bisect.bisect(cumulative_counts, score)
+		#print("Index is ", index)
+		codon = codon_list[index]
+		#print("Chosen codon is ", codon)
+		protein += codon
+	return ''.join(protein)
+	
+
+if __name__ == "__main__":
+	sys.exit(main())
+
