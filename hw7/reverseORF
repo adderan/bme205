@@ -3,16 +3,43 @@
 #Alden Deran (adderan)
 
 from __future__ import print_function
-import argparse, sys, random, string, collections, bisect, operator, sequence_parser
+import argparse, sys, random, string, collections, bisect, operator, sequence_parser, re
 
 complement_table = string.maketrans("ACTG", "TGAC")
 
+acid_to_codon = {
+'F': ['TTT', 'TTC'],
+'L': ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
+'I': ['ATT', 'ATC', 'ATA'],
+'M': ['ATG'],
+'V': ['GTT', 'GTC', 'GTA', 'GTG'],
+'S': ['TCT', 'TCC', 'TCA', 'TCG'],
+'P': ['CCT', 'CCC', 'CCA', 'CCG'],
+'T': ['ACT', 'ACC', 'ACA', 'ACG'],
+'A': ['GCT', 'GCC', 'GCA', 'GCG'],
+'Y': ['TAT', 'TAC'],
+'H': ['CAT', 'CAC'],
+'Q': ['CAA', 'CAG'],
+'N': ['AAT', 'AAC'],
+'K': ['AAA', 'AAG'],
+'D': ['GAT', 'GAC'],
+'E': ['GAA', 'GAG'],
+'C': ['TGT', 'TGC'],
+'W': ['TGG'],
+'R': ['CGT', 'CGC', 'CGA', 'CGG'],
+'S': ['AGT', 'AGC'],
+'R': ['AGA', 'AGG'],
+'G': ['GGT', 'GGC', 'GGA', 'GGG'],
+}
+
+atg = re.compile(r"ATG")
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = "Generates long ORFs (sequences of"
 		"codons beginning with ATG and containing no stop codons, and outputs a histogram"
-		"of the lengths of the longest ORF on the opposite strand of the one generated.")
-	parser.add_argument("--protein", type = argparse.FileType('r'),  help = "Protein sequence.")
+		"of the lengths of the longest ORF on the opposite strand of the one generated. If a protein"
+		"is provided, the sequences generated are required to code for that protein.")
+	parser.add_argument("--protein", type = argparse.FileType('r'),  help = "A file containing a protein sequence in FASTA format.")
 	parser.add_argument("--codon", type = argparse.FileType('r'), help = "Codon bias table.")
 	parser.add_argument("--num_sequences", type = int, default = 10000, help = "Number of sequences to generate.")
 
@@ -25,20 +52,26 @@ def main():
 	reverse compelement strands. Record the number of occurrences of each
 	ORF length, and calculate the p-value for each length by adding all the
 	counts for lengths greater than or equal to that length. Output the results in four
-	columns (length, count, probability, p-value)."""
+	columns (length, count, probability, p-value). If a protein is provided, 
+	sequences that also code for that protein are generated rather than random proteins."""
 	args = parse_arguments()
-	codon_table, acid_codon_table, codon_acid_table = parse_codon_table(args.codon)
+	codon_table = parse_codon_table_square(args.codon)
 	codon_list, cumulative_counts = process_codon_table(codon_table)
 
-
 	rc_orf_length = collections.Counter()
-	for i in xrange(args.num_sequences):
-		if args.protein:
-			parsed_protein = ""
-			for name, description, seq in sequence_parser.read_fasta(args.protein):
-				parsed_protein += seq
 
-			protein = generate_equivalent_protein(parsed_protein, acid_codon_table, codon_acid_table, codon_table)
+
+	input_protein = None
+	if args.protein:
+		input_protein = ""
+		for name, description, seq in sequence_parser.read_fasta(args.protein):
+			input_protein += seq
+		print("Using a length ", len(input_protein), " protein", file = sys.stderr)
+
+
+	for i in xrange(args.num_sequences):
+		if input_protein:	
+			protein = generate_equivalent_protein(input_protein, codon_table)
 		else:
 			protein = generate_protein(560, codon_list, cumulative_counts)
 		longest_rc_orf = length_of_longest_reverse_strand_orf(protein)
@@ -60,27 +93,52 @@ def main():
 		if(count != 0):
 			print(length, "\t", count, "\t", length_probability, "\t", p_value, sep = '')
 
-def generate_equivalent_protein(protein, acid_codon_table, codon_acid_table, codon_bias):
-	print(protein)
+def generate_equivalent_protein(protein, codon_bias):
+	"""Generates a sequence that codes for the given protein
+	by randomly selecting codons that represent each amino acid, 
+	weighted by their frequency of occurrence in the codon_bias
+	dict."""
+	#print(protein)
 	equiv_protein = "ATG"
-	for acid in xrange(len(protein)):
-		possible_codons = acid_codon_table[acid]
+	for acid in protein[1:]:
+		possible_codons = acid_to_codon[acid]
+
+		#list containing a running total of the counts, 
+		#so that cumlative_totals[i] is the sum of the counts
+		#for the i-th codon and all the others preceding it
+		#in the list of possible codons.
 		cumulative_totals = []
-		total = 0
+
+		total = 0 #contains the cumulative count
 		for pc in possible_codons:
 			total += codon_bias[pc]
-			cumulative_total.append(score_total)
+			cumulative_totals.append(total)
+
+		#generate an random integer. This integer
+		#will fall into one of the ranges corresponding 
+		#to one of the possible codons. 
 		score = random.randint(0, total-1)
+
+		#The codon corresponding to the range that the integer
+		#was contained in
 		index = bisect.bisect(cumulative_totals, score)
+
 		alt_codon = possible_codons[index]
+		#print("chosen codon: ", alt_codon)
 		equiv_protein += alt_codon
 	return equiv_protein
 
 		
 def parse_codon_table(infile):
+	"""Reads a five-column, whitespace separated table of codon frequency 
+	information. In order, the columns should be: amino acid, codon, count,
+	and two other columns that aren't used. Returns a tuple containing a 
+	dictionary from codons to counts and a dictionary from three-letter amino acid
+	abbreviations to codons."""
+
 	codon_bias = {}
 	acid_codon_table = collections.defaultdict(list)
-	codon_acid_table = {}
+	#codon_acid_table = {}
 	for line in infile:
 		codon_info = line.split()
 		if(len(codon_info) != 5): continue
@@ -90,8 +148,8 @@ def parse_codon_table(infile):
 		codon_bias[codon] = count
 		if acid_codon_table[acid] is None: acid_codon_table[acid] = []
 		acid_codon_table[acid[0]].append(codon)
-		codon_acid_table[codon] = acid
-	return (codon_bias, acid_codon_table, codon_acid_table)
+		#codon_acid_table[codon] = acid
+	return (codon_bias, acid_codon_table)
 
 
 def parse_codon_table_square(infile):
@@ -155,17 +213,17 @@ def length_of_longest_reverse_strand_orf(protein):
 	#the protein, starting from the start position given by the outer loop, until
 	#it reaches a stop codon. The resulting ORF is then checked to see if it is
 	#the longest so far.
-	for frame in xrange(len(protein_rc)):
-		index = frame
-		while index < len(protein_rc) - 3: 
-			
+
+	match_indices = [m.start() for m in re.finditer(atg, protein_rc)]
+	#print(match_indices)
+	for match in match_indices:
+		index = match + 3
+		while index < len(protein_rc) - 3:
 			codon = protein_rc[index:index + 3]
 			if codon == "TAG" or codon == "TAA" or codon == "TGA": break
 			index += 3
-
-		if index - frame > longest_orf:
-			longest_orf = index - frame
-		codon = ""
+		if index - match > longest_orf:
+			longest_orf = index - match - 3
 	return longest_orf/3 #divide by 3 to convert nucleotide length to codon length
 
 	
