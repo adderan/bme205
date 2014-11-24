@@ -1,0 +1,54 @@
+#!/usr/bin/env python2.7
+
+#bme 205 hw 7, adderan
+
+from __future__ import print_function
+import sys, argparse, gzip, sequence_parser, collections
+
+def main():
+	parser = argparse.ArgumentParser()
+	parser.add_argument("filename")
+	#parser.add_argument("k", type = int)
+
+	args = parser.parse_args()
+	seq_file = gzip.open(args.filename, 'rb')
+
+	three_mer_counter = collections.Counter()
+	for name, description, seq in sequence_parser.read_fasta(seq_file):
+		for start in xrange(len(seq) - 3):
+			kmer = seq[start:start + 3]
+			three_mer_counter[kmer] += 1
+	seq_file = gzip.open(args.filename, 'rb')	
+	nucleotide_counter = collections.Counter()
+	for name, description, seq in sequence_parser.read_fasta(seq_file):
+		for start in xrange(len(seq)):
+			n = seq[start]
+			nucleotide_counter[n] += 1
+	
+	nucleotides, nucleotide_counts = zip(*nucleotide_counter.items())
+	nucleotide_count_sum = sum(nucleotide_counts)
+	g_freq = float(nucleotide_counter["G"])/nucleotide_count_sum
+	c_freq = float(nucleotide_counter["C"])/nucleotide_count_sum
+	a_freq = float(nucleotide_counter["A"])/nucleotide_count_sum
+	t_freq = float(nucleotide_counter["T"])/nucleotide_count_sum
+
+	three_mers, three_mer_counts = zip(*three_mer_counter.items())
+	#print(three_mer_counts)
+	three_mer_sum = sum(three_mer_counts)
+	ATG_freq = float(three_mer_counter["ATG"])/three_mer_sum
+	TAA_freq = float(three_mer_counter["TAA"])/three_mer_sum
+	TGA_freq = float(three_mer_counter["TGA"])/three_mer_sum
+	TAG_freq = float(three_mer_counter["TAG"])/three_mer_sum
+	stop_freq = TAA_freq + TGA_freq + TAG_freq
+	print("total nucleotides: ", nucleotide_count_sum)
+	print("G: ", g_freq)
+	print("C: ", c_freq)
+	print("A: ", a_freq)
+	print("T: ", t_freq)
+	print("ATG: ", ATG_freq)
+	print("stop: ", stop_freq)
+
+
+
+if __name__ == "__main__":
+	sys.exit(main())
