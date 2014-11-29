@@ -1,0 +1,66 @@
+#!/usr/bin/env python2.7
+
+#Alden Deran (adderan)
+
+from __future__ import print_function
+import sys, argparse, align, operator, sequence_parser
+
+
+def parse_arguments():
+	parser = argparse.ArgumentParser(description = "Local and global alignment.")
+	parser.add_argument("--subst_matrix", type = argparse.FileType('r'), help = "Filename of substitution matrix.")
+	parser.add_argument("--align", type = str, default = "local")
+	parser.add_argument("--open", type = int, default = 10)
+	parser.add_argument("--extend", type = int, default = 2)
+	parser.add_argument("--double_gap", type = int, default = 3)
+
+	args = parser.parse_args()
+	return args
+
+def parse_subst_matrix(infile):
+	subst = {}
+	first_line = True
+	lines = infile.readlines()
+	colnames = lines[0].split()
+	rownames = colnames
+
+	i = 1
+	for row in rownames:
+		j = 1
+		for col in colnames:
+			subst[row + col] = int(lines[i].split()[j])
+			j += 1
+		j = 1
+		i += 1
+	return subst
+			
+		
+def main():
+	args = parse_arguments()
+
+	subst = parse_subst_matrix(args.subst_matrix)
+
+	#matrix_elements = sorted(subst.items(), key = operator.itemgetter(0))
+	#for pair, score in matrix_elements:
+	#	print(pair, score)
+
+
+	aligner = None
+	if args.align == "local":
+		aligner = align.local_aligner(subst, args.open, args.extend, args.double_gap)
+
+	sequences = []
+	for name, description, seq in sequence_parser.read_fasta(sys.stdin):
+		sequences.append(seq)
+	print(aligner.score_a2m(sequences[0], sequences[1]))
+	print(aligner.score_a2m(sequences[0], sequences[2]))
+	print(aligner.score_a2m(sequences[0], sequences[3]))
+	print(aligner.score_a2m(sequences[0], sequences[4]))
+	print(aligner.score_a2m(sequences[0], sequences[5]))
+	print(aligner.score_a2m(sequences[0], sequences[6]))
+	print(aligner.score_a2m(sequences[0], sequences[7]))
+		
+
+if __name__ == "__main__":
+	sys.exit(main())
+
