@@ -17,6 +17,13 @@ def parse_arguments():
 	args = parser.parse_args()
 	return args
 
+def clean_seq(seq, alphabet):
+	cleaned_seq = []
+	for character in seq:
+		if character in alphabet:
+			cleaned_seq.append(character.upper())
+	return ''.join(cleaned_seq)
+
 def parse_subst_matrix(infile):
 	subst = {}
 	first_line = True
@@ -45,20 +52,32 @@ def main():
 	#	print(pair, score)
 
 
+	alphabet = set([])
+	alphabet_lower = set([])
+	for pair, score in subst.items():
+		alphabet = alphabet.union(pair[0].upper())
+		alphabet_lower = alphabet_lower.union(pair[0].lower())
+
+
 	aligner = None
 	if args.align == "local":
-		aligner = align.local_aligner(subst, args.open, args.extend, args.double_gap)
+		aligner = align.local_aligner(subst, alphabet, alphabet_lower, args.open, args.extend, args.double_gap)
 
 	sequences = []
 	for name, description, seq in sequence_parser.read_fasta(sys.stdin):
-		sequences.append(seq)
-	print(aligner.score_a2m(sequences[0], sequences[1]))
-	print(aligner.score_a2m(sequences[0], sequences[2]))
-	print(aligner.score_a2m(sequences[0], sequences[3]))
-	print(aligner.score_a2m(sequences[0], sequences[4]))
-	print(aligner.score_a2m(sequences[0], sequences[5]))
-	print(aligner.score_a2m(sequences[0], sequences[6]))
-	print(aligner.score_a2m(sequences[0], sequences[7]))
+		sequences.append(clean_seq(seq, alphabet_lower.union(alphabet)))
+
+	print(sequences[0])
+	print(sequences[1])
+	aligner.align(sequences[0], sequences[1])
+	print(aligner.traceback_col_seq())
+	#print(aligner.score_a2m(sequences[0], sequences[1]))
+	#print(aligner.score_a2m(sequences[0], sequences[2]))
+	#print(aligner.score_a2m(sequences[0], sequences[3]))
+	#print(aligner.score_a2m(sequences[0], sequences[4]))
+	#print(aligner.score_a2m(sequences[0], sequences[5]))
+	#print(aligner.score_a2m(sequences[0], sequences[6]))
+	#print(aligner.score_a2m(sequences[0], sequences[7]))
 		
 
 if __name__ == "__main__":
