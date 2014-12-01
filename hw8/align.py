@@ -1,3 +1,4 @@
+from __future__ import print_function
 import operator
 
 def score_a2m_global(s1, s2, subst, open_gap, extend_gap, double_gap, alphabet, alphabet_lower):
@@ -139,8 +140,8 @@ class local_aligner:
 				self.update_value(i, j, Ir, M, Ic)
 
 		scores = [(cell, Ir, M, Ic) for cell, (Ir, M, IC) in self.align_matrices.items()]
-		scores = sorted(scores, key = operator.itemgetter(2))
-		return scores[0]
+		scores = sorted(scores, key = operator.itemgetter(2), reverse = True)
+		return scores[0][2]
 
 	def traceback_col_seq(self):
 		res_seq = ""
@@ -148,13 +149,28 @@ class local_aligner:
 		cell_scores = [(cell, Ir, M, Ic) for cell, (Ir, M, Ic) in self.align_matrices.items()]
 		cell_scores = sorted(cell_scores, key = operator.itemgetter(2), reverse = True)
 		start_cell = cell_scores[0][0]
+
+		#If the best score is less than zero,
+		#an empty alignment is optimal
+		max_score = cell_scores[0][2]
+		if max_score <= 0:
+			empty_alignment = "-"*len(self.row_seq) + self.col_seq.lower()
+			return empty_alignment
+
+		#print("Expected optimal alignment score: ", max_score, file = sys.stderr)
 		
 		i = len(self.row_seq) - 1
 		j = len(self.col_seq) - 1
-		start_row, start_col = start_cell.split(sep = ",")
+		start_row, start_col = start_cell.split(",")
+		#print("starting at ", start_row, ", ", start_col)
+		
+		start_row = int(start_row)
+		start_col = int(start_col)
 
-		res_seq += '-' * (len(self.row_seq) - start_row)
-		i -= len(self.row_seq) - start_row
+		while i > start_row:
+			res_seq += '-'
+			i = i - 1
+
 		assert(i == start_row)
 		
 		while j > start_col:
@@ -162,10 +178,74 @@ class local_aligner:
 			j -= 1
 		assert(j == start_col)
 
+		state = 1 #State representing which subproblem is currently 
+		#being evaluated. The alignment starts with a match, 
+		#so the state is initially one. If a gap is opened in row_seq,
+		#the state will transition to 0, or to 2 if a gap is opened in
+		#col_seq
+		penaltiesIr = (self.extend, self.open, self.double)
+		penaltiesM = (0, 0, 0)
+		penaltiesIc = (self.double, self.open, self.extend)
 
+		while i > 0 and j > 0:
+			#output the character for the current square based
+			#on the subproblem.
+			if state == 1:
+				res_seq += self.col_seq[j].upper()
+				j = j - 1
+				i = i - 1
+			elif state == 0:
+				res_seq += "-"
+				i = i - 1
+			elif state == 2:
+				res_seq += self.col_seq[j].lower()
+				j = j - 1
 
-		
+			#decide which section of the next square to go to
+			#next
+			nextIr, nextM, nextIc = self.get_value(i, j)
+			penalties = None
 
+			if state == 0: penalties = penaltiesIr
+			elif state == 1: penalties = penaltiesM
+			elif state == 2: penalties = penaltiesIc
+			adjustedNextScores = (nextIr - penalties[0], nextM - penalties[1], nextIc - penalties[2])
+			
+			#if at a match, and all the scores for the next cell are negative,
+			#end the alignment.
+			if state == 1 and adjustedNextScores[0] < 0 and adjustedNextScores[1] < 0 and adjustedNextScores[2] <0:
+				break
+
+			#assign the next state to Ir, M, or Ic depending on which
+			#has the maximum score minus penalty for the next cell.
+			if adjustedNextScores[0] >= adjustedNextScores[1]:
+				if adjustedNextScores[2] >= adjustedNextScores[0]:
+					state = 2
+				else: state = 0
+			else:
+				if adjustedNextScores[2] >= adjustedNextScores[1]:
+					state = 2
+				else:
+					state = 1
+
+		#add the last character if its score is greater than
+		#zero. 
+		if self.subst[self.row_seq[i] + self.col_seq[j]] > 0:
+			res_seq += self.col_seq[j].upper()
+
+		#print beginning gaps (deletions) and lowercase characters (insertions)
+
+		while j > 0:
+			res_seq += self.col_seq[j].lower()
+			j = j - 1
+		while i > 0:
+			res_seq += "-"
+			i = i - 1
+
+		res_seq_forward = res_seq[::-1]
+		#print("score should be: ", cell_scores[0][2])
+		#print("score is: ", self.score_a2m(self.row_seq, res_seq_forward))
+		return res_seq_forward
 
 
 class global_aligner:

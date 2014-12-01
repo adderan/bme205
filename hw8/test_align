@@ -57,27 +57,33 @@ def main():
 	for pair, score in subst.items():
 		alphabet = alphabet.union(pair[0].upper())
 		alphabet_lower = alphabet_lower.union(pair[0].lower())
-
+	alphabet_both = alphabet.union(alphabet_lower)
 
 	aligner = None
 	if args.align == "local":
 		aligner = align.local_aligner(subst, alphabet, alphabet_lower, args.open, args.extend, args.double_gap)
 
-	sequences = []
+	master_sequence = ""
+	first_sequence = True
 	for name, description, seq in sequence_parser.read_fasta(sys.stdin):
-		sequences.append(clean_seq(seq, alphabet_lower.union(alphabet)))
+		if first_sequence:
+			master_sequence = clean_seq(seq, alphabet_both)
+			first_sequence = False
+			print(">", name, " ", description, sep = "")
+			print(master_sequence)
+			continue
+		col_seq = clean_seq(seq, alphabet_both)
+		exp_score = aligner.align(master_sequence, col_seq)
+		alignment = aligner.traceback_col_seq()
+		print(">", name, " ", description, sep = "")
+		print(alignment)
 
-	print(sequences[0])
-	print(sequences[1])
-	aligner.align(sequences[0], sequences[1])
-	print(aligner.traceback_col_seq())
-	#print(aligner.score_a2m(sequences[0], sequences[1]))
-	#print(aligner.score_a2m(sequences[0], sequences[2]))
-	#print(aligner.score_a2m(sequences[0], sequences[3]))
-	#print(aligner.score_a2m(sequences[0], sequences[4]))
-	#print(aligner.score_a2m(sequences[0], sequences[5]))
-	#print(aligner.score_a2m(sequences[0], sequences[6]))
-	#print(aligner.score_a2m(sequences[0], sequences[7]))
+		print("Expected score: ", exp_score, file = sys.stderr)
+		print("Score of alignment produced: ", aligner.score_a2m(master_sequence, alignment), file = sys.stderr)
+
+		
+
+
 		
 
 if __name__ == "__main__":
