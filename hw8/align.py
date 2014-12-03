@@ -52,14 +52,14 @@ def argmax(t):
 		if t[i] == max_value: return i
 	
 class local_aligner:
-	def __init__(self, subst, alphabet, alphabet_lower, open, extend, double):
+	def __init__(self, subst, alphabet, open, extend, double):
 		self.subst = subst
 		self.open = open
 		self.extend = extend
 		self.double = double
 		
 		self.alphabet = alphabet
-		self.alphabet_lower = alphabet_lower
+		self.alphabet_lower = set([element.lower() for element in alphabet])
 			
 
 	def score_a2m(self, s1, s2):
@@ -193,7 +193,7 @@ class local_aligner:
 		scores = sorted(scores, key = operator.itemgetter(2), reverse = True)
 		return scores[0][2]
 	
-
+	
 	def traceback_col_seq(self):
 		res_seq = ""
 
@@ -293,4 +293,161 @@ class local_aligner:
 
 
 class global_aligner:
-	pass	
+	def __init__(self, subst, alphabet, open_penalty, extend_penalty, double_gap_penalty):
+		self.subst = subst
+		self.alphabet = alphabet
+		self.alphabet_lower = set([element.lower() for element in alphabet])
+		self.open = open_penalty
+		self.extend = extend_penalty
+		self.double = double_gap_penalty
+		self.align_matrices = {}
+	def score_a2m(self, s1, s2):
+		return score_a2m_global(s1, s2, self.subst, self.open, self.extend, self.double, self.alphabet, self.alphabet_lower)
+
+	def update_value(self, i, j, Ir, M, Ic):
+		"""Updates align_matrices, which is a dictionary
+		of (Ir, M, Ic) tuples stored by the local_aligner class.
+		For each of these three values, the 
+		i,j cell of that matrix is updated to that value if it is
+		not None."""
+
+		index = str(i) + "," + str(j)
+		old_value = (None, None, None)
+		if index in self.align_matrices:
+			old_value = self.align_matrices[index]
+		IrNew = old_value[0]
+		MNew = old_value[1]
+		IcNew = old_value[2]
+		if Ir is not None:
+			IrNew = Ir
+		if M is not None:
+			MNew = M
+		if Ic is not None:
+			IcNew = Ic
+		new_value = IrNew, MNew, IcNew
+		self.align_matrices[index] = new_value
+	
+	def get_value(self, i, j):
+		"""Gets the value of all three alignment matrices (Ir, M, IC)
+		as a tuple, for the cell i,j."""
+
+		index = str(i) + "," + str(j)
+		return self.align_matrices[index]		
+
+	def	align(self, row_seq, col_seq):
+		"""Global alignment."""
+
+		self.row_seq = row_seq
+		self.col_seq = col_seq
+
+		nrow = len(row_seq)
+		ncol = len(col_seq)
+
+		minus_inf = -100000
+		
+		#fill in the start-start cell with 0 in the match state,
+		#minus infinity in the other states. The alignment will always start
+		#in this cell.
+		self.update_value(-1, -1, minus_inf, 0, minus_inf)
+
+		#fill in the (0, -1) and (-1, 0) cells that correspond to
+		#a gap opening at the beginning of the sequence
+		self.update_value(-1, 0, -1*self.open, minus_inf, minus_inf)
+		self.update_value(0, -1, minus_inf, minus_inf, -1*self.open)
+
+
+		#Fill in the start row and start column using the boundary conditions
+		for i in xrange(1, nrow):
+			j = -1
+			Ic = minus_inf
+			M = minus_inf
+
+			upIr, upM, upIc = self.get_value(i-1, j)
+			Ir = upIr - self.extend
+
+			self.update_value(i, j, Ir, M, Ic)
+		for j in xrange(1, ncol):
+			i = -1
+			Ir = minus_inf
+			M = minus_inf
+			leftIr, leftM, leftIc = self.get_value(i, j - 1)
+
+			Ic = leftIc - self.extend			
+			self.update_value(i, j, Ir, M, Ic)
+
+		#Fill in the rest of the matrix using the recurrence relations
+		for i in xrange(0, nrow):
+			for j in xrange(0, ncol):
+				upIr, upM, upIc = self.get_value(i-1, j)
+				leftIr, leftM, leftIc = self.get_value(i, j-1)
+				diagIr, diagM, diagIc = self.get_value(i-1, j-1)
+
+				Sij = self.subst[row_seq[i] + col_seq[j]]
+
+				Ir = max(upM - self.open, upIr - self.extend, upIc - self.double)
+				Ic = max(leftM - self.open, leftIr - self.double, leftIc - self.extend)
+
+				#this is different from local alignment because the alignment
+				#can't start anywhere but the start character. There is no option
+				#to stop at i,j even if all the next cells are negative.
+				M = Sij + max(diagIc, diagIr, diagM)
+
+				self.update_value(i, j, Ir, M, Ic)
+
+		final_scores = self.get_value(nrow-1, ncol-1)
+
+		return final_scores
+
+	def traceback_col_seq(self):
+		res_seq = ""
+		
+		final_scores = self.get_value(len(self.row_seq) -1, len(self.col_seq) -1)
+	
+		i = len(self.row_seq) - 1
+		j = len(self.col_seq) - 1
+
+		subproblem = argmax(final_scores)#State representing which subproblem is currently 
+		#being evaluated. The alignment starts with a match, 
+		#so the subproblem is initially one. If a gap is opened in row_seq,
+		#the state will transition to 0, or to 2 if a gap is opened in
+		#col_seq
+
+		penaltiesIr = (self.extend, self.open, self.double)
+		penaltiesM = (0, 0, 0)
+		penaltiesIc = (self.double, self.open, self.extend)
+
+		while i > 0 or j > 0:
+			#output the character for the current square based
+			#on the subproblem.
+			if subproblem == 1:
+				res_seq += self.col_seq[j].upper()
+				j = j - 1
+				i = i - 1
+			elif subproblem == 0:
+				res_seq += "-"
+				i = i - 1
+			elif subproblem == 2:
+				res_seq += self.col_seq[j].lower()
+				j = j - 1
+
+			#decide which section of the next square to go to
+			#next
+			nextIr, nextM, nextIc = self.get_value(i, j)
+			penalties = None
+
+			if subproblem == 0: penalties = penaltiesIr
+			elif subproblem == 1: penalties = penaltiesM
+			elif subproblem == 2: penalties = penaltiesIc
+			adjustedNextScores = (nextIr - penalties[0], nextM - penalties[1], nextIc - penalties[2])
+			
+
+			#assign the next state to Ir, M, or Ic depending on which
+			#has the maximum score minus penalty for the next cell.
+			subproblem = argmax(adjustedNextScores)
+
+		res_seq_forward = res_seq[::-1]
+		#print("score should be: ", cell_scores[0][2])
+		#print("score is: ", self.score_a2m(self.row_seq, res_seq_forward))
+		return res_seq_forward
+
+

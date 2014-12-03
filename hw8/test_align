@@ -61,7 +61,9 @@ def main():
 
 	aligner = None
 	if args.align == "local":
-		aligner = align.local_aligner(subst, alphabet, alphabet_lower, args.open, args.extend, args.double_gap)
+		aligner = align.local_aligner(subst, alphabet, args.open, args.extend, args.double_gap)
+	if args.align == "global":
+		aligner = align.global_aligner(subst, alphabet, args.open, args.extend, args.double_gap)
 
 	master_sequence = ""
 	first_sequence = True
@@ -81,10 +83,6 @@ def main():
 		print("Expected score: ", exp_score, file = sys.stderr)
 		print("Score of alignment produced: ", aligner.score_a2m(master_sequence, alignment), file = sys.stderr)
 
-		
-
-
-		
 
 if __name__ == "__main__":
 	sys.exit(main())
