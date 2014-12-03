@@ -7,6 +7,8 @@ import sys, argparse, align, operator, sequence_parser
 
 
 def parse_arguments():
+	"""Parses a substitution matrix, the opening, extension, and double_gap penalties, and the type of alignment
+	to be done."""
 	parser = argparse.ArgumentParser(description = "Local and global alignment.")
 	parser.add_argument("--subst_matrix", type = argparse.FileType('r'), help = "Filename of substitution matrix.")
 	parser.add_argument("--align", type = str, default = "local")
@@ -18,6 +20,7 @@ def parse_arguments():
 	return args
 
 def clean_seq(seq, alphabet):
+	"""Removed all non-alphabetic characters from seq and converts it to uppercase."""
 	cleaned_seq = []
 	for character in seq:
 		if character in alphabet:
@@ -25,17 +28,23 @@ def clean_seq(seq, alphabet):
 	return ''.join(cleaned_seq)
 
 def parse_subst_matrix(infile):
+	"""Reads a substitution matrix from infile, ignoring comments."""
 	subst = {}
 	first_line = True
 	lines = infile.readlines()
-	colnames = lines[0].split()
+	uncommented_lines = []
+	for line in lines:
+		if line[0] != "#":
+			uncommented_lines.append(line)
+
+	colnames = uncommented_lines[0].split()
 	rownames = colnames
 
 	i = 1
 	for row in rownames:
 		j = 1
 		for col in colnames:
-			subst[row + col] = int(lines[i].split()[j])
+			subst[row + col] = int(uncommented_lines[i].split()[j])
 			j += 1
 		j = 1
 		i += 1
@@ -43,13 +52,13 @@ def parse_subst_matrix(infile):
 			
 		
 def main():
+	"""Parses the substitution matrix and extracts the alphabet from it.
+	Then reads each sequence from stdin and removes all non-alphabetic characters.
+	The first sequence is then treated as the master sequence, and all following sequences
+	are aligned to it. The alignments are then printed in a2m format."""
 	args = parse_arguments()
 
 	subst = parse_subst_matrix(args.subst_matrix)
-
-	#matrix_elements = sorted(subst.items(), key = operator.itemgetter(0))
-	#for pair, score in matrix_elements:
-	#	print(pair, score)
 
 
 	alphabet = set([])
@@ -80,7 +89,7 @@ def main():
 		print(">", name, " ", description, sep = "")
 		print(alignment)
 
-		print("Expected score: ", exp_score, file = sys.stderr)
+		print("Expected score (from alignment matrices): ", exp_score, file = sys.stderr)
 		print("Score of alignment produced: ", aligner.score_a2m(master_sequence, alignment), file = sys.stderr)
 
 

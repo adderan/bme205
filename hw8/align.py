@@ -1,6 +1,8 @@
 from __future__ import print_function
 import operator
 
+#Alden Deran (adderan)
+
 def score_a2m_global(s1, s2, subst, open_gap, extend_gap, double_gap, alphabet, alphabet_lower):
 	"""Scores the global alignment of two sequences s1 and s2. S1 should be the master
 	sequence from an a2m file, and s2 should be one of the other sequences. A substitution matrix and
@@ -47,11 +49,13 @@ def score_a2m_global(s1, s2, subst, open_gap, extend_gap, double_gap, alphabet, 
 	return score
 
 def argmax(t):
+	"""Returns the index of the maximum value in a tuple."""
 	max_value = max(t)
 	for i in range(len(t)):
 		if t[i] == max_value: return i
 	
 class local_aligner:
+	"""Contains functions for local alignment of two sequences using affine gap costs."""
 	def __init__(self, subst, alphabet, open, extend, double):
 		self.subst = subst
 		self.open = open
@@ -59,6 +63,8 @@ class local_aligner:
 		self.double = double
 		
 		self.alphabet = alphabet
+
+		#useful in scoring a2m files
 		self.alphabet_lower = set([element.lower() for element in alphabet])
 			
 
@@ -111,11 +117,12 @@ class local_aligner:
 
 
 	def update_value(self, i, j, Ir, M, Ic):
-		"""Updates align_matrices, which is a dictionary
-		of (Ir, M, Ic) tuples stored by the local_aligner class.
-		For each of these three values, the 
-		i,j cell of that matrix is updated to that value if it is
-		not None."""
+		"""Updates the stored value of the tuple (Ir, M, Ic) at the cell i,j in
+		the alignment matrices. The cell i,j represents either an insertion, deletion, 
+		or match at the i-th character from the row_seq and the j-th character from the col_seq.
+		Each of the values are only updated if the given replacement value
+		is not None."""
+
 
 		index = str(i) + "," + str(j)
 		old_value = (None, None, None)
@@ -141,6 +148,8 @@ class local_aligner:
 		return self.align_matrices[index]		
 
 	def	align(self, row_seq, col_seq):
+		"""Fllls in the local alignment matrices (Ir, M, Ic) for row_seq and 
+		col_seq using affine gap costs."""
 		self.align_matrices = {}
 		self.row_seq = row_seq
 		self.col_seq = col_seq
@@ -195,10 +204,15 @@ class local_aligner:
 	
 	
 	def traceback_col_seq(self):
+		"""Uses the prcomputed alignment matrices to discover one of the optimal
+		local alignments for row_seq and col_seq."""
 		res_seq = ""
-
+		
+		#find the score of the optimal local alignment ending with a match between two characters.
 		cell_scores = [(cell, Ir, M, Ic) for cell, (Ir, M, Ic) in self.align_matrices.items()]
 		cell_scores = sorted(cell_scores, key = operator.itemgetter(2), reverse = True)
+
+		#cell coordinates of the end of the local alignment
 		start_cell = cell_scores[0][0]
 
 		#If the best score is less than zero,
@@ -208,12 +222,15 @@ class local_aligner:
 			empty_alignment = "-"*len(self.row_seq) + self.col_seq.lower()
 			return empty_alignment
 
-		#print("Expected optimal alignment score: ", max_score, file = sys.stderr)
 		
+		#start at the bottom-right cell in the alignment matrix, and
+		#print out dashes and lowercase characters for each sequence
+		#until the start of the alignment is reached. These insertions
+		#and deletions will not contribute to the score of the local alignment.
 		i = len(self.row_seq) - 1
 		j = len(self.col_seq) - 1
+
 		start_row, start_col = start_cell.split(",")
-		#print("starting at ", start_row, ", ", start_col)
 		
 		start_row = int(start_row)
 		start_col = int(start_col)
@@ -221,23 +238,28 @@ class local_aligner:
 		while i > start_row:
 			res_seq += '-'
 			i = i - 1
-
-		assert(i == start_row)
 		
 		while j > start_col:
 			res_seq += self.col_seq[j].lower()
 			j -= 1
-		assert(j == start_col)
 
-		subproblem = 1 #State representing which subproblem is currently 
+		#State representing which subproblem is currently 
 		#being evaluated. The alignment starts with a match, 
 		#so the subproblem is initially one. If a gap is opened in row_seq,
 		#the state will transition to 0, or to 2 if a gap is opened in
 		#col_seq
+		subproblem = 1
+		
+		#the penalties are different depending on whether a gap 
+		#is already open, is not open, or is open on the opposite sequence
 		penaltiesIr = (self.extend, self.open, self.double)
 		penaltiesM = (0, 0, 0)
 		penaltiesIc = (self.double, self.open, self.extend)
 
+		#traverse the matrix until reaching the first row or first column.
+		#At that point, the alignment has terminated. It can also terminate 
+		#within the matrix (on a match) if all options for continuing provide
+		#a negative score.
 		while i > 0 and j > 0:
 			#output the character for the current square based
 			#on the subproblem.
@@ -293,23 +315,40 @@ class local_aligner:
 
 
 class global_aligner:
+	"""Class containing functions for global alignment of sequences
+	with affine gap costs. The align() function fills in the Ir, M, and Ic 
+	matrices, which are then used by the traceback_col_seq() function to recover
+	one of the optimal global alignments."""
+
 	def __init__(self, subst, alphabet, open_penalty, extend_penalty, double_gap_penalty):
+		"""Creates a new aligner object with the specified gap opening, gap extension,
+		and double gap penalties. Stores the alphabet of possible characters and a substitution
+		matrix that gives scores for pairing each character with each other character in an alignment."""
 		self.subst = subst
 		self.alphabet = alphabet
+
+		#also store the lowercase alphabet, which is used for recognizing
+		#insertion characters in a2m-formatted sequences.
 		self.alphabet_lower = set([element.lower() for element in alphabet])
+
 		self.open = open_penalty
 		self.extend = extend_penalty
 		self.double = double_gap_penalty
+
+		#a dict 
 		self.align_matrices = {}
+	
 	def score_a2m(self, s1, s2):
+		"""Scores two sequences in a2m format using affine gap costs. s1 should be the master sequence
+		and s2 a sequence with possible insertions, deletions, or substitutions relative to s1."""
 		return score_a2m_global(s1, s2, self.subst, self.open, self.extend, self.double, self.alphabet, self.alphabet_lower)
 
 	def update_value(self, i, j, Ir, M, Ic):
-		"""Updates align_matrices, which is a dictionary
-		of (Ir, M, Ic) tuples stored by the local_aligner class.
-		For each of these three values, the 
-		i,j cell of that matrix is updated to that value if it is
-		not None."""
+		"""Updates the stored value of the tuple (Ir, M, Ic) at the cell i,j in
+		the alignment matrices. The cell i,j represents either an insertion, deletion, 
+		or match at the i-th character from the row_seq and the j-th character from the col_seq.
+		Each of the values are only updated if the given replacement value
+		is not None."""
 
 		index = str(i) + "," + str(j)
 		old_value = (None, None, None)
@@ -335,7 +374,8 @@ class global_aligner:
 		return self.align_matrices[index]		
 
 	def	align(self, row_seq, col_seq):
-		"""Global alignment."""
+		"""Fills in the Ir, M, and Ic matrices for global alignment  of
+		row_seq and col_seq with affine gap costs."""
 
 		self.row_seq = row_seq
 		self.col_seq = col_seq
@@ -347,16 +387,20 @@ class global_aligner:
 		
 		#fill in the start-start cell with 0 in the match state,
 		#minus infinity in the other states. The alignment will always start
-		#in this cell.
+		#in this cell, so matching the start character with any other character
+		#is prohibited by the minus infinite score.
 		self.update_value(-1, -1, minus_inf, 0, minus_inf)
 
 		#fill in the (0, -1) and (-1, 0) cells that correspond to
-		#a gap opening at the beginning of the sequence
-		self.update_value(-1, 0, -1*self.open, minus_inf, minus_inf)
-		self.update_value(0, -1, minus_inf, minus_inf, -1*self.open)
+		#a gap opening at the beginning of the sequence. These gaps are 
+		#charged the full gap opening penalty
+		self.update_value(-1, 0, minus_inf, minus_inf, -1*self.open)
+		self.update_value(0, -1, -1*self.open, minus_inf, minus_inf)
 
 
-		#Fill in the start row and start column using the boundary conditions
+		#Fill in the start row and start column using the boundary conditions. For the
+		#start row, Ir is always minus infinity because it looks one cell up, which is undefined.
+		#Ic decreases linearly at each cell because a gap has been opened and is being extended.
 		for i in xrange(1, nrow):
 			j = -1
 			Ic = minus_inf
@@ -375,7 +419,7 @@ class global_aligner:
 			Ic = leftIc - self.extend			
 			self.update_value(i, j, Ir, M, Ic)
 
-		#Fill in the rest of the matrix using the recurrence relations
+		#Fill in the rest of the matrix using the recurrence relations for global alignment.
 		for i in xrange(0, nrow):
 			for j in xrange(0, ncol):
 				upIr, upM, upIc = self.get_value(i-1, j)
@@ -396,13 +440,42 @@ class global_aligner:
 
 		final_scores = self.get_value(nrow-1, ncol-1)
 
-		return final_scores
+		return max(final_scores)
+
+
+	def print_matrix(self):
+		"""Prints the Ir, M, and Ic matrices for debugging."""
+
+		for i in range(-1, len(self.row_seq)):
+			for j in range(-1, len(self.col_seq)):
+				print(self.get_value(i,j)[0], " ", end = '')
+			print("")
+		print("")
+		for i in range(-1, len(self.row_seq)):
+			for j in range(-1, len(self.col_seq)):
+				print(self.get_value(i,j)[1], " ", end = '')
+			print("")
+		print("")
+		for i in range(-1, len(self.row_seq)):
+			for j in range(-1, len(self.col_seq)):
+				print(self.get_value(i,j)[2], " ", end = '')
+			print("")
+
 
 	def traceback_col_seq(self):
+		"""Uses the pre-computed alignment matrices to find one 
+		of the optimal global alignments of row_seq and col_seq."""
+
 		res_seq = ""
 		
 		final_scores = self.get_value(len(self.row_seq) -1, len(self.col_seq) -1)
-	
+
+		#Start at the maximum score from the cell in the bottom right corner, 
+		#corresponding to a match, insertion, or deletion at
+		#the last character of both sequences. One must start at this 
+		#cell since this is a global alignment and every character 
+		#has to be aligned to either a gap or a character from the 
+		#opposite sequence.
 		i = len(self.row_seq) - 1
 		j = len(self.col_seq) - 1
 
@@ -416,20 +489,28 @@ class global_aligner:
 		penaltiesM = (0, 0, 0)
 		penaltiesIc = (self.double, self.open, self.extend)
 
-		while i > 0 or j > 0:
-			#output the character for the current square based
+		while True:
+			#output the character for the current cell based
 			#on the subproblem.
 			if subproblem == 1:
 				res_seq += self.col_seq[j].upper()
+
+				#since this was a match, go up one cell and left one cell,
+				#as determined by the recurrence relations.
 				j = j - 1
 				i = i - 1
 			elif subproblem == 0:
+
+				#since this was a gap in col_seq, go up
+				#one row but stay at the same column, because
+				#the current character from col_seq still must
+				#be added.
 				res_seq += "-"
 				i = i - 1
 			elif subproblem == 2:
 				res_seq += self.col_seq[j].lower()
 				j = j - 1
-
+			if j < 0 and i < 0: break
 			#decide which section of the next square to go to
 			#next
 			nextIr, nextM, nextIc = self.get_value(i, j)
@@ -445,9 +526,8 @@ class global_aligner:
 			#has the maximum score minus penalty for the next cell.
 			subproblem = argmax(adjustedNextScores)
 
+
 		res_seq_forward = res_seq[::-1]
-		#print("score should be: ", cell_scores[0][2])
-		#print("score is: ", self.score_a2m(self.row_seq, res_seq_forward))
 		return res_seq_forward
 
 
