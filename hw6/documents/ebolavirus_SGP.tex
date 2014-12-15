@@ -1,0 +1,50 @@
+\documentclass[a4paper,12pt]{article}
+
+
+\title{Glycoproteins in \textit{Zaire Ebolavirus}}
+\date{November 11, 2014}
+\author{Alden Deran \\ University of California, Santa Cruz}
+\usepackage{graphicx}
+
+\begin{document}
+\maketitle
+
+\section{Background}
+The Ebolavirus Glycoprotein Precursor (preGP) and the Secreted Glycoprotein Precursor (sGP) are  proteins that are important in the attachment of \textit{Zaire ebolavirus} (EBOV) to host cells and the release of the virus genetic material into the cell.\cite{pmid8622982, pmid21987767} The proteins are unusual in that they are encoded by two different reading frames on the fourth gene of the \textit{Zaire ebolavirus} genome. This is done through RNA editing that causes a frame shift - an Adenine nucleotide can be inserted into a series of seven Uracil nucleotides at position 6918 in the genome. This insertion can happen twice, causing a second frame shift and the transcription of a third protein, ssGP, which has unknown function. \par
+The preGP protein is cleaved by the enzyme \textit{furin} at position 501 into the two proteins GP1 and GP2.\cite{pmid24473128} These proteins are then linked by a disulfide bond, and form the GP1-GP2 complex that attaches to the virion surface. \cite{pmid22485110} The sGP protein is produced in much larger quantities than preGP, and it might sometimes replace GP1 as part of the glycoprotein complex on the virus surface.\cite{pmid21987767} \par
+
+The GP1-GP2 complex forms a homotrimeric (three of the same protein as a polymer) spike on the virus surface. The GP1 protein is thought to contain the receptor binding domain that attaches to proteins on the target cell surface, while GP2 is responsible for fusion of the virus membrane with the cell membrane.\cite{pmid25392212} GP2 contains a fusion loop with a series of hydrophobic amino acids, and experiments have shown that \textit{ebolavirus} infection is hindered when this section of the loop is mutated.\cite{pmid24696482}
+GP1 probably consists of a receptor-binding domain that targets the NPC1 receptor in human cells (position 54 to 201 in preGP), a "glycan cap" containing N-linked glycans (position 201 to 309), and a "mucin-like" domain containing N-linked and O-linked glycans (position 309 to 501). \cite{pmid24473128} After the virus is inside a cell, the enzyme cathepsin B removes the mucin and glycan cap domains, which exposes the receptor binding domain. A study involving mutations of the glycolysation sites of GP1 has indicated that the glycans might make the virus less effective at entering cells, but more likely to avoid antibodies. \cite{pmid24473128} The glycans might act as a "shield" for the receptor binding domain when the virus is attempting to evade the immune system, but then this shield is stripped away once the virus has been transduced and the RBD is needed.
+
+
+\section{Identifying the Gene}
+Starting with a cDNA nucleotide sequence of an unknown gene, the sequence was translated into amino acid sequences using the standard codon table, yielding a possible protein sequence for each of the six reading frames. \cite{pmid10827456} An NCBI BLAST search discovered a match for the \textit{Zaire ebolavirus} spike glycoprotein precursor with 47\% coverage and 100\% identity in the first reading frame. A second protein, \textit{Zaire ebolavirus} secreted glycoprotein (sGP), was found with 51\% coverage and 99\% identity by searching for the translation of the second reading frame. A third protein, ssGP, was found in the first frame with 43\% coverage and 100\% identity. This protein is likely produced by multiple frame shifts when reading the gene, so it is much less abundant than the other two.
+\section{Possible Homologs}
+A PSI BLAST search on the \textit{Zaire ebolavirus} preGP with the BLOSUM 45 substitution matrices revealed highly probable homologies with other strains of \textit{ebolavirus}, as expected. The glycoproteins of \textit{Bundibugyo ebolavirus}, \textit{Reston ebolavirus}, and \textit{Sudan ebolavirus} scored 66\%, 58\%, and 57\% identity respectively. It might be useful to test whether the glycoproteins of different strains have substantially different protein domains or predicted structures because of these differences in the protein sequence. Checking which parts of the glycoprotein are conserved might be helpful for discovering its mechanism for evading the immune system and transporting itself into the host cells. 
+Another homology strongly indicated by the PSI BLAST search is with the glycoprotein of \textit{Marburg marburgvirus} (49\% coverage and 51\% identity), the other virus in the \textit{Filoviridae} family of hemorrhagic fever-inducing viruses. \cite{pmid23202446}
+Other predicted homologies were with the glycoproteins of the \textit{CAS virus}, \textit{Avian leukosis virus}, and \textit{Boa arenavirus}. The \textit{CAS virus} shares a domain in the GP2 protein with the \textit{Filovirirdae} family, and the GP2 protein likely has the same function in \textit{CAS virus}.
+\section{Multiple Sequence Alignments}
+The preGP sequences of five strains of \textit{ebolavirus} discovered by the Psi-BLAST search were then aligned using Clustal Omega\cite{pmid21988835} to discover conserved regions. The alignment (Figure 1) shows many identities from about positions 1-190 and positions 500-end, suggesting the possible locations of the core components of GP1 and GP2. The middle region, believed to be the mucin-like domain of GP1 from positions about 300 to 500, is not highly conserved. This is consistent with experiments indicating that this region is less essential.\cite{pmid24473128}
+\begin{figure}
+\includegraphics[width=\textwidth]{../multiple_alignments/pregp}
+\caption{Multiple alignment of preGP in five \textit{ebolavirus} strains, showing the conserved regions of GP1 and GP2. The mucin-like domain of GP1 appears to be non-conserved. Alignment produced by Clustal Omega. \cite{pmid21988835}}
+\end{figure}
+\section{Glycosylation Sites}
+The N-glycosylation prediction server NetNGlyc 1.0 was used to find glycosylation sites on the "glycan cap" section of \textit{Zaire ebolavirus} GP1, from positions 201 to 309 in preGP. The predicted sites are shown in Figure 2. A multiple alignment this section of the Reston, Sudan, Tai Forest, and Zaire \textit{ebolavirus} strains was then created to check how conserved the region is. While the alignment overall had fairly low identity between sequences, the glycosylation sites themselves seemed to be conserved, as seen in Figure 3. \cite{netNGlyc}
+\begin{figure}
+\includegraphics[width=\textwidth]{../glycosylation/glycosylation_pred}
+\caption{Predicted N-glycosylation sites in the glycan cap of \textit{Zaire ebolavirus} GP1. Predictions produced by NetNGlyc 1.0 \cite{netNGlyc} Glycosylation is believed to be important in protecting \textit{ebolavirus} from the immune system.}
+\end{figure}
+\begin{figure}
+\includegraphics[width=\textwidth]{../multiple_alignments/glycan_cap.png}
+\caption{Multiple sequence alignment of the glycan cap (position 201 to 309 in preGP) of \textit{Sudan}, \textit{Reston}, \textit{Zaire}, and \textit{Tai Forest} \textit{ebolavirus}. The alignment shows conservation of the predicted glycosylation sites at positions 56 and 67 and possibly 3, 27, and 95. Some of the sites have different sequences after the initial N character, but remain in the same location across all four virus strains. This could support the hypothesis that the glycosylation sites are selected for. Alignment produced by Clustal Omega.\cite{pmid21988835}}
+\end{figure}
+
+\section{Protein Domains}
+A search at SUPERFAMILY over Hidden Markov Models of protein families with known structure discovered "Virus ectodomain" (position 524-632) as a possible conserved domain in preGP, with E-value 0.00000538. \cite{pmid11697912}
+
+A search for the full preGP protein in rpsiblast revealed several possible conserved domains. The domain \textbf{Ebola-like\_HR1-HR2} was found at position 557-629 in the protein - this is in the section that becomes GP2 after preGP is cleaved by the furin enzyme. The \textbf{Filo\_glycop} domain corresponding to the GP1 spike structure was found at positions 15-372. A more unexpected match was for the \textbf{Herpes\_BLLF1} domain, which is the glycoprotein for Herpes virus. 
+
+\bibliographystyle{plain}
+\bibliography{ebolavirus_SGP}
+\end{document}
