@@ -1,14 +1,20 @@
 #!/usr/bin/env python2.7
 
-#Alden Deran (adderan) 
+#Alden Deran (adderan), bme 205 homework 2 
+
+"""Parses FASTQ or FASTA formatted sequences and trims them so that all 
+characters are above a given quality level. Then outputs the sequences
+in either FASTA or FASTQ format."""
 
 from __future__ import print_function
 import sequence_parser, sys, argparse
 
 
 def parse_arguments():
+	"""Parse the input FASTQ or FASTA and quality files, the minimum quality,
+	and the output FASTA or FASTQ files."""
 	parser = argparse.ArgumentParser(description = "Parse FASTA and FASTQ files.")
-	parser.add_argument('--min_qual', type = int, help = "Quality level at which to trim the end of the input sequences. All bases below this quality level will be removed.")
+	parser.add_argument('--min_qual', type = int, help = "Quality level at which to trim the end of the input sequences. All characters below this quality level will be removed.")
 	parser.add_argument('--in_33', type = argparse.FileType('r'), help = "Input FASTQ file with Phred+33 quality score encoding.")
 	parser.add_argument('--in_64', type = argparse.FileType('r'), help = "Input FASTQ file with Phred+64 quality score encoding.")
 	parser.add_argument('--out_33', type = argparse.FileType('w'), help = "Output FASTQ file with Phred+33 quality score encoding.")
@@ -42,20 +48,25 @@ def main():
 	else: #fastq with phred 64 is the last possible option
 		parse_input = sequence_parser.read_fastq(args.in_64, 64)
 		
-	
+
+	#trim each sequence and quality string and output in the specified
+	#format
 	for name, description, sequence, quality in parse_input:
 
 		endtrimmed_sequence, endtrimmed_quality = trim_end(sequence, quality, args.min_qual)
 
 		if args.out_fasta:
-			print_fasta(name, description, sequence, quality, args.out_fasta, args.out_qual)
+			print_fasta(name, description, endtrimmed_sequence, endtrimmed_quality, args.out_fasta, args.out_qual)
 		elif args.out_33:
-			print_fastq(name, description, sequence, quality, 33, args.out_33)
+			print_fastq(name, description, endtrimmed_sequence, endtrimmed_quality, 33, args.out_33)
 		elif args.out_64:
-			print_fastq(name, description, sequence, quality, 64, args.out_64)
+			print_fastq(name, description, endtrimmed_sequence, endtrimmed_quality, 64, args.out_64)
 
 
 def trim_end(sequence, quality, min_quality):
+	"""Takes a string of sequence characters and a list of quality
+	integers of the same length, and trims both so that all characters
+	after the first one with quality lower than min_quality are removed."""
 	if min_quality is None: 
 		print("Warning: No minimum quality given, so no endtrimming done.", sys.stderr)
 		return sequence
@@ -65,13 +76,20 @@ def trim_end(sequence, quality, min_quality):
 	return (sequence, quality)
 
 def print_fasta(name, description, sequence, quality, sequencefile, qualityfile):
+	"""Prints a sequence to sequencefile and a quality string to qualityfile in FASTA format. 
+	The first line of the sequence file starts with '>' and contains the name and description, 
+	the second line contains the sequence. The quality file also has the name/description line, but
+	the second line is the quality integers."""
 	print(">", name, ' ', description, sep = '', file = sequencefile)
 	print(sequence, file = sequencefile)
 	if qualityfile is not None:
 		print(">", name, ' ', description, sep = '', file = qualityfile)
-		print(quality, file = qualityfile)
+		print(*quality, file = qualityfile)
 
 def print_fastq(name, description, sequence, quality, phred, outfile):
+	"""Prints a sequence in FASTQ format to outfile. The quality values
+	are encoded by characters whose ASCII code is the quality value minus
+	the provided phred value."""
 	print("@", name, ' ', description, sep = '', file = outfile)
 	print(sequence, file = outfile)
 	print("+", name, ' ', description, sep = '', file = outfile)
