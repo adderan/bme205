@@ -3,26 +3,8 @@
 #Alden Deran (adderan)
 
 from __future__ import print_function
-import sys, argparse, itertools, collections
+import sys, argparse, degenerate_codons, string
 
-degenerate_bases = {
-	'A': ['A'],
-	'G': ['G'],
-	'C': ['C'],
-	'T': ['T'],
-	'U': ['T'],
-	'R': ['G', 'A'],
-	'Y': ['T', 'C'],
-	'K': ['G', 'T'],
-	'M': ['A', 'C'],
-	'S': ['G', 'C'],
-	'W': ['A', 'T'],
-	'B': ['G', 'T', 'C'],
-	'D': ['G', 'A', 'T'],
-	'H': ['A', 'C', 'T'],
-	'V': ['G', 'C', 'A'],
-	'N': ['G', 'C', 'A', 'T']
-}
 def parse_codon_table(infile):
 	codon_acid = {}
 	for line in infile:
@@ -37,48 +19,47 @@ def parse_codon_table(infile):
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = "Creates a table of amino acids encoded by a degenerate codon")
 	parser.add_argument("--codon_table", type = argparse.FileType('r'), help = "Map from amino acids to codons.")
+	parser.add_argument("--codon_frequency", type = argparse.FileType('r'), help = "Codon frequency table.")
+	parser.add_argument("--output_format", type = str, default = "minimal", help = "Output format.")
 	args = parser.parse_args()
 	return args
-def generate_all_codons(degenerate_bases):
-	for codon in itertools.product(degenerate_bases.keys(), repeat = 3):
-		yield ''.join(codon)
-	
-def make_codon_expand_table(degenerate_bases):
-	codon_expand_table = {}
-	for codon in generate_all_codons(degenerate_bases):
-		degenerate_options = [degenerate_bases[base] for base in codon]
-		codon_expand_table[codon] = []
-		for expand_codon in itertools.product(*degenerate_options):
-			expand_codon = ''.join(expand_codon)
-			codon_expand_table[codon].append(expand_codon)
-	return codon_expand_table
-		
-def make_degenerate_codon_to_acid_multiset(codon_table, codon_expand_table):
-	degenerate_codon_to_acid = {}
-	for degenerate_codon in codon_expand_table.keys():
-		degenerate_codon_to_acid[degenerate_codon] = collections.Counter()
-		for expand_codon in codon_expand_table[degenerate_codon]:
-			acid = codon_table[expand_codon]
-			degenerate_codon_to_acid[degenerate_codon][acid] += 1
-	return degenerate_codon_to_acid
-def make_acid_list_to_degenerate_codons(degenerate_codon_to_acid):
-	acid_list_to_degenerate_codons = {}
-	for degenerate_codon, multiset in degenerate_codon_to_acid.items():
-		keystring = ''.join(sorted(multiset.keys()))
-		if keystring not in acid_list_to_degenerate_codons:
-			acid_list_to_degenerate_codons[keystring] = []
-		acid_list_to_degenerate_codons[keystring].append(degenerate_codon)
-	return acid_list_to_degenerate_codons
-	
+
+
+def parse_codon_frequency(infile):
+	"""Accepts a file containing an RNA codon count table with four codons
+	and their counts on each line. The format for each line should look like:
+
+	AAA 23.5( 3400) AAC 45.6( 34323) ....
+
+	Returns a dictionary such that codon_counts[codon] is the number of counts
+	given for that codon in the input file. Counts for stop codons are always set 
+	to zero."""
+
+	codon_bias = {}
+
+	#converts RNA to DNA
+	rna_table = string.maketrans("ACUG", "ACTG")
+
+	for line in infile:
+		codon_info = line.split()
+		if len(codon_info) != 12: continue
+		for i in range(4):
+			codon = codon_info[3*i].translate(rna_table)
+			count = codon_info[3*i + 2]
+			count = int(count[0:len(count)-1]) #remove the parenthesis at the end
+			codon_bias[codon] = count
+
+	return codon_bias
+
 def main():
 	args = parse_arguments()
+	codon_frequency = parse_codon_frequency(args.codon_frequency)
 	codon_acid_table = parse_codon_table(args.codon_table)
-	#print(codon_acid_table)
-	codon_expand_table = make_codon_expand_table(degenerate_bases)
-	degenerate_codon_to_acid = make_degenerate_codon_to_acid_multiset(codon_acid_table, codon_expand_table)
-	acid_list_to_degenerate_codons = make_acid_list_to_degenerate_codons(degenerate_codon_to_acid)
-	print(acid_list_to_degenerate_codons)
-
+	dc = degenerate_codons.DegenerateCodons(codon_acid_table, codon_frequency)
+	if args.output_format == "minimal":
+		dc.print_minimal_table()
+	if args.output_format == "min-codons":
+		dc.print_min_codons_table()	
 
 if __name__ == "__main__":
 	sys.exit(main())
