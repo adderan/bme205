@@ -6,6 +6,7 @@ from __future__ import print_function
 import sys, argparse, degenerate_codons, string
 
 def parse_codon_table(infile):
+	"""Parses a table of amino acids and the codons that can encode them."""
 	codon_acid = {}
 	for line in infile:
 		info = line.split()
@@ -17,10 +18,13 @@ def parse_codon_table(infile):
 	return codon_acid
 
 def parse_arguments():
+	"""Gets command-line arguments for the output format, which can be in two different formats, and the codon and frequency tables."""
 	parser = argparse.ArgumentParser(description = "Creates a table of amino acids encoded by a degenerate codon")
-	parser.add_argument("--codon_table", type = argparse.FileType('r'), help = "Map from amino acids to codons.")
-	parser.add_argument("--codon_frequency", type = argparse.FileType('r'), help = "Codon frequency table.")
-	parser.add_argument("--output_format", type = str, default = "minimal", help = "Output format.")
+	parser.add_argument("--codon_table", type = argparse.FileType('r'), default = "codon_table.txt", help = "Map from amino acids to codons.")
+	parser.add_argument("--codon_frequency", type = argparse.FileType('r'), default = "codon_frequency.txt", help = "Codon frequency table.")
+	parser.add_argument("--output_format", type = str, default = "minimal", help = "Output format. Options are 'minimal', which prints only the \
+		codon with lowest imbalance (with ties broken by highest frequency), and 'min-codons' which prints all codons with minimum imbalance \
+		sorted by descending frequency.")
 	args = parser.parse_args()
 	return args
 
@@ -52,9 +56,13 @@ def parse_codon_frequency(infile):
 	return codon_bias
 
 def main():
+	"""Parses the codon table and codon frequency table, and prints the degenerate
+	codon information in the specified format."""
 	args = parse_arguments()
 	codon_frequency = parse_codon_frequency(args.codon_frequency)
 	codon_acid_table = parse_codon_table(args.codon_table)
+
+	#create a DegenerateCodons object for this organism
 	dc = degenerate_codons.DegenerateCodons(codon_acid_table, codon_frequency)
 	if args.output_format == "minimal":
 		dc.print_minimal_table()
